@@ -41,6 +41,7 @@ class AppState:
                 "url": self.config.gzctf.url,
                 "username": self.config.gzctf.username,
                 "password": self.config.gzctf.password,
+                "token": self.config.gzctf.token,
                 "team_id": self.config.gzctf.team_id,
             },
             "llm": {

@@ -1,464 +1,469 @@
-/* ── CTF Agent Frontend ─────────────────────────────────────────── */
+/* ── CTF Agent Frontend ────────────────────────────────────────────── */
 
-const API = '';  // same origin
+// ── Theme ────────────────────────────────────────────────────────────
 
-// ── Navigation ───────────────────────────────────────────────────
-
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
-    const page = item.dataset.page;
-    navigateTo(page);
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('ctf-agent-theme', theme);
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.themeBtn === theme);
   });
-});
-
-function navigateTo(page) {
-  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
-  const pageEl = document.getElementById(`page-${page}`);
-  if (navItem) navItem.classList.add('active');
-  if (pageEl) pageEl.classList.add('active');
-
-  // Auto-load on navigation
-  if (page === 'games') loadGames();
-  if (page === 'settings') loadSettings();
-  if (page === 'agent') { loadTasksList(); populateGameSelects(); }
-  if (page === 'challenges') populateGameSelects();
-  if (page === 'dashboard') loadDashboard();
 }
 
-// ── Settings ─────────────────────────────────────────────────────
+(function initTheme() {
+  const saved = localStorage.getItem('ctf-agent-theme') || 'dark';
+  setTheme(saved);
+})();
+
+// ── Navigation ───────────────────────────────────────────────────────
+
+let currentPage = 'dashboard';
+
+function navigateTo(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + page);
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (pageEl) pageEl.classList.add('active');
+  if (navEl) navEl.classList.add('active');
+
+  if (page === 'dashboard') refreshDashboard();
+  if (page === 'settings') loadSettings();
+  if (page === 'games') loadGames();
+  if (page === 'agent') { refreshSelects(); loadTasksList(); }
+  if (page === 'challenges') refreshChallengeGameSelect();
+}
+
+// ── API helpers ──────────────────────────────────────────────────────
+
+async function api(url, opts = {}) {
+  try {
+    const resp = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`${resp.status}: ${text.slice(0, 200)}`);
+    }
+    return await resp.json();
+  } catch (e) {
+    showToast(e.message, 'error');
+    throw e;
+  }
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── Toast ────────────────────────────────────────────────────────────
+
+function showToast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  const colors = { info: 'var(--info)', success: 'var(--success)', error: 'var(--danger)', warning: 'var(--warning)' };
+  el.style.background = colors[type] || colors.info;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────
+
+async function refreshDashboard() {
+  try {
+    const tasks = await api('/api/tasks');
+    const taskCount = Object.keys(tasks).length;
+    const running = Object.values(tasks).filter(t => t.status === 'running').length;
+    document.getElementById('stat-tasks').textContent = taskCount;
+    document.getElementById('stat-running').textContent = running;
+
+    const games = await api('/api/games').catch(() => []);
+    document.getElementById('stat-games').textContent = Array.isArray(games) ? games.length : '-';
+    document.getElementById('stat-status').textContent = 'Online';
+  } catch {
+    document.getElementById('stat-status').textContent = 'Offline';
+  }
+}
+
+// ── Settings ─────────────────────────────────────────────────────────
 
 async function loadSettings() {
   try {
-    const resp = await fetch(`${API}/api/settings`);
-    const data = await resp.json();
-    document.getElementById('set-gzctf-url').value = data.gzctf_url || '';
-    document.getElementById('set-gzctf-username').value = data.gzctf_username || '';
-    document.getElementById('set-gzctf-password').value = data.gzctf_password || '';
-    document.getElementById('set-gzctf-team-id').value = data.gzctf_team_id || '';
-    document.getElementById('set-llm-provider').value = data.llm_provider || 'openai';
-    document.getElementById('set-llm-api-key').value = data.llm_api_key || '';
-    document.getElementById('set-llm-base-url').value = data.llm_base_url || '';
-    document.getElementById('set-llm-model').value = data.llm_model || 'gpt-4o';
-    document.getElementById('set-llm-temperature').value = data.llm_temperature || 0.1;
-    document.getElementById('set-llm-max-tokens').value = data.llm_max_tokens || 4096;
-    document.getElementById('set-agent-retries').value = data.agent_max_retries || 3;
-    document.getElementById('set-agent-auto-submit').checked = data.agent_auto_submit !== false;
-    document.getElementById('set-agent-auto-container').checked = data.agent_auto_start_container !== false;
-    document.getElementById('set-agent-skip-solved').checked = data.agent_skip_solved !== false;
-    document.getElementById('set-agent-categories').value = (data.agent_categories || []).join(',');
-  } catch (e) {
-    console.error('Failed to load settings:', e);
-  }
+    const s = await api('/api/settings');
+    document.getElementById('set-gzctf-url').value = s.gzctf_url || '';
+    document.getElementById('set-gzctf-username').value = s.gzctf_username || '';
+    document.getElementById('set-gzctf-password').value = s.gzctf_password || '';
+    document.getElementById('set-gzctf-token').value = s.gzctf_token || '';
+    document.getElementById('set-gzctf-team-id').value = s.gzctf_team_id || '';
+    document.getElementById('set-llm-provider').value = s.llm_provider || 'openai';
+    document.getElementById('set-llm-api-key').value = s.llm_api_key || '';
+    document.getElementById('set-llm-base-url').value = s.llm_base_url || '';
+    document.getElementById('set-llm-model').value = s.llm_model || 'gpt-4o';
+    document.getElementById('set-llm-temperature').value = s.llm_temperature ?? 0.1;
+    document.getElementById('set-llm-max-tokens').value = s.llm_max_tokens || 4096;
+    document.getElementById('set-agent-max-retries').value = s.agent_max_retries || 3;
+    document.getElementById('set-agent-auto-submit').checked = s.agent_auto_submit !== false;
+    document.getElementById('set-agent-auto-container').checked = s.agent_auto_start_container !== false;
+    document.getElementById('set-agent-skip-solved').checked = s.agent_skip_solved !== false;
+  } catch { /* toast already shown */ }
 }
 
-async function saveSettings(event) {
-  event.preventDefault();
-  const body = {
-    gzctf_url: document.getElementById('set-gzctf-url').value,
-    gzctf_username: document.getElementById('set-gzctf-username').value,
+async function saveSettings() {
+  const data = {
+    gzctf_url: document.getElementById('set-gzctf-url').value.trim(),
+    gzctf_username: document.getElementById('set-gzctf-username').value.trim(),
     gzctf_password: document.getElementById('set-gzctf-password').value,
+    gzctf_token: document.getElementById('set-gzctf-token').value.trim(),
     gzctf_team_id: parseInt(document.getElementById('set-gzctf-team-id').value) || null,
     llm_provider: document.getElementById('set-llm-provider').value,
     llm_api_key: document.getElementById('set-llm-api-key').value,
-    llm_base_url: document.getElementById('set-llm-base-url').value || null,
-    llm_model: document.getElementById('set-llm-model').value,
-    llm_temperature: parseFloat(document.getElementById('set-llm-temperature').value),
-    llm_max_tokens: parseInt(document.getElementById('set-llm-max-tokens').value),
-    agent_max_retries: parseInt(document.getElementById('set-agent-retries').value),
+    llm_base_url: document.getElementById('set-llm-base-url').value.trim() || null,
+    llm_model: document.getElementById('set-llm-model').value || 'gpt-4o',
+    llm_temperature: parseFloat(document.getElementById('set-llm-temperature').value) || 0.1,
+    llm_max_tokens: parseInt(document.getElementById('set-llm-max-tokens').value) || 4096,
+    agent_max_retries: parseInt(document.getElementById('set-agent-max-retries').value) || 3,
     agent_auto_submit: document.getElementById('set-agent-auto-submit').checked,
     agent_auto_start_container: document.getElementById('set-agent-auto-container').checked,
     agent_skip_solved: document.getElementById('set-agent-skip-solved').checked,
-    agent_categories: document.getElementById('set-agent-categories').value.split(',').map(s => s.trim()).filter(Boolean),
   };
-
-  try {
-    const resp = await fetch(`${API}/api/settings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (resp.ok) {
-      showToast('设置已保存');
-    } else {
-      showToast('保存失败', 'error');
-    }
-  } catch (e) {
-    showToast('保存失败: ' + e.message, 'error');
-  }
+  await api('/api/settings', { method: 'POST', body: JSON.stringify(data) });
+  showToast('Settings saved', 'success');
 }
 
 async function testConnection() {
-  const status = document.getElementById('connection-status');
-  status.textContent = '连接中...';
-  status.style.color = 'var(--info)';
+  showToast('Testing connection...', 'info');
   try {
-    // Save settings first
-    await saveSettings(new Event('submit'));
-    const resp = await fetch(`${API}/api/login`, { method: 'POST' });
-    if (resp.ok) {
-      const data = await resp.json();
-      status.textContent = `连接成功! 用户: ${data.userName}`;
-      status.style.color = 'var(--success)';
-    } else {
-      status.textContent = '连接失败';
-      status.style.color = 'var(--danger)';
-    }
-  } catch (e) {
-    status.textContent = '连接失败: ' + e.message;
-    status.style.color = 'var(--danger)';
-  }
+    const profile = await api('/api/login', { method: 'POST' });
+    const name = profile.userName || profile.bio || 'OK';
+    showToast('Connected: ' + name, 'success');
+  } catch { /* toast already shown */ }
 }
 
-// ── Games ────────────────────────────────────────────────────────
+// ── Games ────────────────────────────────────────────────────────────
 
 let gamesCache = [];
 
 async function loadGames() {
   const container = document.getElementById('games-list');
-  container.innerHTML = '<div class="placeholder">加载中...</div>';
+  container.innerHTML = '<div class="placeholder">Loading...</div>';
   try {
-    const resp = await fetch(`${API}/api/games`);
-    const games = await resp.json();
+    const games = await api('/api/games');
     gamesCache = games;
-    populateGameSelects();
-
     if (!games.length) {
-      container.innerHTML = '<div class="placeholder">暂无比赛</div>';
+      container.innerHTML = '<div class="placeholder">No games found. Check your settings and connection.</div>';
       return;
     }
     container.innerHTML = games.map(g => `
-      <div class="game-card" onclick="selectGame(${g.id})">
+      <div class="game-card" onclick="navigateTo('challenges'); selectGameForChallenges(${g.id})">
         <h3>${escHtml(g.title)}</h3>
-        <p style="color:var(--text-dim);font-size:13px">${escHtml(g.summary || '')}</p>
+        <div class="game-summary">${escHtml((g.summary || g.content || '').slice(0, 120))}</div>
         <div class="game-meta">
-          <span>状态: <strong>${escHtml(g.status || '未知')}</strong></span>
-          <span>队伍: ${g.teamCount || 0}</span>
-          <span>ID: #${g.id}</span>
+          <span>#${g.id}</span>
+          <span>${g.teamCount || '-'} teams</span>
         </div>
       </div>
     `).join('');
-
-    document.getElementById('stat-games').textContent = games.length;
-  } catch (e) {
-    container.innerHTML = `<div class="placeholder">加载失败: ${escHtml(e.message)}<br>请先在设置中配置平台地址并测试连接</div>`;
+  } catch {
+    container.innerHTML = '<div class="placeholder">Failed to load games</div>';
   }
 }
 
-function selectGame(gameId) {
-  document.getElementById('game-select').value = gameId;
-  document.getElementById('solve-game-select').value = gameId;
-  navigateTo('challenges');
-  loadChallenges();
+function selectGameForChallenges(gameId) {
+  const sel = document.getElementById('challenge-game-select');
+  sel.value = gameId;
+  loadChallenges(gameId);
 }
 
-function populateGameSelects() {
-  ['game-select', 'solve-game-select'].forEach(id => {
-    const sel = document.getElementById(id);
-    const current = sel.value;
-    sel.innerHTML = '<option value="">选择比赛...</option>';
-    gamesCache.forEach(g => {
-      sel.innerHTML += `<option value="${g.id}">${escHtml(g.title)} (#${g.id})</option>`;
-    });
-    if (current) sel.value = current;
+// ── Challenges ───────────────────────────────────────────────────────
+
+async function refreshChallengeGameSelect() {
+  const sel = document.getElementById('challenge-game-select');
+  if (sel.options.length <= 1 && gamesCache.length) {
+    populateGameSelect(sel, gamesCache);
+  }
+  if (sel.options.length <= 1) {
+    try {
+      const games = await api('/api/games');
+      gamesCache = games;
+      populateGameSelect(sel, games);
+    } catch { /* skip */ }
+  }
+}
+
+function populateGameSelect(sel, games) {
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Select a game...</option>';
+  games.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = `#${g.id} - ${g.title}`;
+    sel.appendChild(opt);
+  });
+  if (current) sel.value = current;
+}
+
+async function loadChallenges(gameId) {
+  const container = document.getElementById('challenges-container');
+  if (!gameId) {
+    container.innerHTML = '<div class="placeholder">Select a game to view challenges</div>';
+    return;
+  }
+  container.innerHTML = '<div class="placeholder">Loading...</div>';
+  try {
+    const categories = await api(`/api/games/${gameId}/challenges`);
+    let html = '';
+    for (const [cat, challenges] of Object.entries(categories)) {
+      html += `
+        <div class="card" style="margin-bottom:16px;">
+          <h3><span class="badge badge-category">${escHtml(cat)}</span> ${challenges.length} challenges</h3>
+          <div class="table-container"><table>
+            <thead><tr><th>ID</th><th>Title</th><th>Score</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              ${challenges.map(c => `
+                <tr>
+                  <td>${c.id}</td>
+                  <td>${escHtml(c.title)}</td>
+                  <td>${c.score || c.originalScore || '-'}</td>
+                  <td>${c.isSolved
+                    ? '<span class="badge badge-solved">Solved</span>'
+                    : '<span class="badge badge-unsolved">Unsolved</span>'
+                  }</td>
+                  <td><button class="btn btn-small btn-solve" onclick="quickSolve(${gameId},${c.id})">Solve</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table></div>
+        </div>
+      `;
+    }
+    container.innerHTML = html || '<div class="placeholder">No challenges found</div>';
+  } catch {
+    container.innerHTML = '<div class="placeholder">Failed to load challenges</div>';
+  }
+}
+
+function quickSolve(gameId, challengeId) {
+  navigateTo('agent');
+  const gs = document.getElementById('agent-game-select');
+  gs.value = gameId;
+  onAgentGameChange(gameId).then(() => {
+    document.getElementById('agent-challenge-select').value = challengeId;
   });
 }
 
-// ── Challenges ───────────────────────────────────────────────────
+// ── Agent ────────────────────────────────────────────────────────────
 
-async function loadChallenges() {
-  const gameId = document.getElementById('game-select').value;
-  const container = document.getElementById('challenges-list');
-  if (!gameId) {
-    container.innerHTML = '<div class="placeholder">请先选择一场比赛</div>';
-    return;
+async function refreshSelects() {
+  const sel = document.getElementById('agent-game-select');
+  if (sel.options.length <= 1) {
+    try {
+      const games = gamesCache.length ? gamesCache : await api('/api/games');
+      gamesCache = games;
+      populateGameSelect(sel, games);
+    } catch { /* skip */ }
   }
-  container.innerHTML = '<div class="placeholder">加载中...</div>';
+}
+
+async function onAgentGameChange(gameId) {
+  const sel = document.getElementById('agent-challenge-select');
+  sel.innerHTML = '<option value="">All Challenges (Per-Category)</option>';
+  if (!gameId) return;
   try {
-    const resp = await fetch(`${API}/api/games/${gameId}/challenges`);
-    const categories = await resp.json();
-
-    let rows = '';
+    const categories = await api(`/api/games/${gameId}/challenges`);
     for (const [cat, challenges] of Object.entries(categories)) {
-      for (const ch of challenges) {
-        const statusBadge = ch.isSolved
-          ? '<span class="badge badge-solved">已解决</span>'
-          : '<span class="badge badge-unsolved">未解决</span>';
-        rows += `<tr>
-          <td>${ch.id}</td>
-          <td><span class="badge badge-info">${escHtml(cat)}</span></td>
-          <td><strong>${escHtml(ch.title)}</strong></td>
-          <td>${ch.score}</td>
-          <td>${statusBadge}</td>
-          <td>
-            <button class="btn btn-small btn-solve" onclick="solveOne(${gameId}, ${ch.id})">
-              解题
-            </button>
-          </td>
-        </tr>`;
-      }
+      challenges.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `[${cat}] ${c.title} (${c.score || '-'} pts)`;
+        sel.appendChild(opt);
+      });
     }
-
-    if (!rows) {
-      container.innerHTML = '<div class="placeholder">暂无题目</div>';
-      return;
-    }
-
-    container.innerHTML = `
-      <table>
-        <thead><tr><th>ID</th><th>分类</th><th>标题</th><th>分值</th><th>状态</th><th>操作</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-  } catch (e) {
-    container.innerHTML = `<div class="placeholder">加载失败: ${escHtml(e.message)}</div>`;
-  }
+  } catch { /* skip */ }
 }
 
-// ── Agent / Solve ────────────────────────────────────────────────
-
-function solveOne(gameId, challengeId) {
-  document.getElementById('solve-game-select').value = gameId;
-  document.getElementById('solve-challenge-id').value = challengeId;
-  navigateTo('agent');
-  startSolve();
-}
+let currentWs = null;
+let currentTaskId = null;
 
 async function startSolve() {
-  const gameId = document.getElementById('solve-game-select').value;
-  if (!gameId) {
-    showToast('请先选择比赛', 'error');
-    return;
-  }
-  const challengeId = document.getElementById('solve-challenge-id').value || null;
+  const gameId = parseInt(document.getElementById('agent-game-select').value);
+  if (!gameId) { showToast('Please select a game', 'warning'); return; }
+  const challengeId = parseInt(document.getElementById('agent-challenge-select').value) || null;
+  const concurrent = document.getElementById('agent-concurrent').checked;
 
   try {
-    const resp = await fetch(`${API}/api/solve`, {
+    const result = await api('/api/solve', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        game_id: parseInt(gameId),
-        challenge_id: challengeId ? parseInt(challengeId) : null,
-      }),
+      body: JSON.stringify({ game_id: gameId, challenge_id: challengeId, concurrent }),
     });
-    const data = await resp.json();
-    if (data.task_id) {
-      showToast('解题任务已启动: ' + data.task_id);
-      connectLogStream(data.task_id);
-      loadTasksList();
-    } else {
-      showToast('启动失败', 'error');
-    }
-  } catch (e) {
-    showToast('启动失败: ' + e.message, 'error');
-  }
+    currentTaskId = result.task_id;
+    showToast(`Task ${result.task_id} started`, 'success');
+    showLogViewer(result.task_id);
+    connectLogStream(result.task_id);
+    loadTasksList();
+  } catch { /* toast already shown */ }
+}
+
+function showLogViewer(taskId) {
+  document.getElementById('log-card').style.display = 'block';
+  document.getElementById('log-output').innerHTML = '';
+  document.getElementById('log-task-id').textContent = taskId;
+  document.getElementById('log-task-id').className = 'badge badge-running';
+  document.getElementById('log-status').textContent = 'Connecting...';
 }
 
 async function loadTasksList() {
+  const card = document.getElementById('tasks-card');
+  const container = document.getElementById('tasks-list');
   try {
-    const resp = await fetch(`${API}/api/tasks`);
-    const tasks = await resp.json();
-    const container = document.getElementById('tasks-list');
-
-    const entries = Object.entries(tasks);
-    if (!entries.length) {
-      container.innerHTML = '<div style="color:var(--text-dim);padding:8px">暂无任务</div>';
-      document.getElementById('stat-tasks').textContent = '0';
-      return;
-    }
-
-    document.getElementById('stat-tasks').textContent = entries.length;
-
-    container.innerHTML = entries.map(([tid, t]) => {
+    const tasks = await api('/api/tasks');
+    const ids = Object.keys(tasks);
+    if (!ids.length) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    container.innerHTML = ids.reverse().map(tid => {
+      const t = tasks[tid];
       const statusClass = t.status === 'running' ? 'badge-running'
         : t.status === 'completed' ? 'badge-completed' : 'badge-error';
-      const chLabel = t.challenge_id ? `题目#${t.challenge_id}` : '全部题目';
       return `
-        <div class="task-item" onclick="connectLogStream('${tid}')">
+        <div class="task-item" onclick="viewTaskLogs('${tid}')">
           <div class="task-info">
             <span class="badge ${statusClass}">${t.status}</span>
-            <span>比赛#${t.game_id} ${chLabel}</span>
+            <span>Task ${tid} &mdash; Game #${t.game_id}${t.challenge_id ? ' Ch#' + t.challenge_id : ' (All)'}</span>
           </div>
-          <span style="color:var(--text-dim);font-size:12px">${tid} (${t.log_count} 条日志)</span>
+          <span style="color:var(--text-muted);font-size:12px;">${t.log_count} logs</span>
         </div>
       `;
     }).join('');
-  } catch (e) {
-    console.error('Failed to load tasks:', e);
-  }
+  } catch { /* skip */ }
 }
 
-// ── WebSocket log streaming ──────────────────────────────────────
+async function viewTaskLogs(taskId) {
+  showLogViewer(taskId);
+  if (currentWs) { currentWs.close(); currentWs = null; }
 
-let currentWs = null;
+  try {
+    const data = await api(`/api/tasks/${taskId}/logs`);
+    const logOutput = document.getElementById('log-output');
+    logOutput.innerHTML = '';
+    (data.logs || []).forEach(log => appendLog(logOutput, log));
+
+    if (data.status === 'running') {
+      connectLogStream(taskId);
+    } else {
+      document.getElementById('log-task-id').className =
+        `badge ${data.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
+      document.getElementById('log-status').textContent = data.status;
+    }
+  } catch { /* toast */ }
+}
+
+// ── WebSocket Log Streaming ──────────────────────────────────────────
 
 function connectLogStream(taskId) {
-  // Close existing connection
-  if (currentWs) {
-    currentWs.close();
-    currentWs = null;
-  }
-
-  const logOutput = document.getElementById('log-output');
-  const logTaskId = document.getElementById('log-task-id');
-  logOutput.innerHTML = '';
-  logTaskId.textContent = taskId;
-  logTaskId.className = 'badge badge-running';
-
+  if (currentWs) { currentWs.close(); }
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${proto}//${location.host}/ws/logs/${taskId}`;
-
-  const ws = new WebSocket(wsUrl);
+  const ws = new WebSocket(`${proto}//${location.host}/ws/logs/${taskId}`);
   currentWs = ws;
+
+  ws.onopen = () => {
+    document.getElementById('log-status').textContent = 'Live';
+    document.getElementById('log-status').style.color = 'var(--success)';
+  };
 
   ws.onmessage = (event) => {
     const log = JSON.parse(event.data);
+    const logOutput = document.getElementById('log-output');
     appendLog(logOutput, log);
-    logOutput.scrollTop = logOutput.scrollHeight;
-
     if (log.type === 'done') {
-      logTaskId.className = `badge ${log.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
-      logTaskId.textContent = `${taskId} (${log.status})`;
+      document.getElementById('log-task-id').className =
+        `badge ${log.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
+      document.getElementById('log-status').textContent = log.status || 'Done';
       loadTasksList();
     }
   };
 
   ws.onerror = () => {
+    document.getElementById('log-status').textContent = 'Disconnected';
+    document.getElementById('log-status').style.color = 'var(--danger)';
     // Fallback to polling
-    pollLogs(taskId, logOutput, logTaskId);
+    pollLogs(taskId);
   };
 
   ws.onclose = () => {
-    currentWs = null;
+    if (currentWs === ws) currentWs = null;
   };
 }
 
-async function pollLogs(taskId, logOutput, logTaskId) {
+function pollLogs(taskId) {
   let seen = 0;
-  const poll = async () => {
+  const interval = setInterval(async () => {
     try {
-      const resp = await fetch(`${API}/api/tasks/${taskId}/logs`);
-      const data = await resp.json();
-
-      if (data.logs && data.logs.length > seen) {
-        for (let i = seen; i < data.logs.length; i++) {
-          appendLog(logOutput, data.logs[i]);
-        }
-        seen = data.logs.length;
-        logOutput.scrollTop = logOutput.scrollHeight;
+      const data = await api(`/api/tasks/${taskId}/logs`);
+      const logOutput = document.getElementById('log-output');
+      const logs = data.logs || [];
+      for (let i = seen; i < logs.length; i++) {
+        appendLog(logOutput, logs[i]);
       }
-
+      seen = logs.length;
       if (data.status !== 'running') {
-        logTaskId.className = `badge ${data.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
-        logTaskId.textContent = `${taskId} (${data.status})`;
+        clearInterval(interval);
+        document.getElementById('log-task-id').className =
+          `badge ${data.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
+        document.getElementById('log-status').textContent = data.status;
         loadTasksList();
-        return;
       }
-      setTimeout(poll, 1000);
-    } catch (e) {
-      setTimeout(poll, 2000);
-    }
-  };
-  poll();
+    } catch { clearInterval(interval); }
+  }, 1500);
 }
+
+// ── Log rendering ────────────────────────────────────────────────────
 
 function appendLog(container, log) {
-  const div = document.createElement('div');
-  div.className = `log-entry log-${log.type}`;
+  const el = document.createElement('div');
+  el.className = `log-entry log-${log.type || 'info'}`;
 
   const time = new Date().toLocaleTimeString();
-  let content = `<span class="log-time">[${time}]</span> `;
+  let content = `<span class="log-time">${time}</span>`;
+
+  if (log.category) {
+    content += `<span class="log-cat-tag">${escHtml(log.category)}</span>`;
+  }
 
   switch (log.type) {
     case 'challenge':
-      content += `<strong>📋 ${escHtml(log.message)}</strong>`;
-      break;
-    case 'thinking':
-      content += `<em>🤔 ${escHtml(log.message)}</em>`;
+      content += `<strong>${escHtml(log.message)}</strong>`;
+      if (log.score) content += ` <span class="badge badge-info">${log.score} pts</span>`;
       break;
     case 'llm_response':
-      const actionBadge = log.action
-        ? `<span class="log-action-badge" style="background:var(--accent);color:#fff">${escHtml(log.action)}</span>`
-        : '';
-      content += `${actionBadge}${escHtml(log.message)}`;
-      if (log.confidence) content += ` <span style="color:var(--text-dim)">(置信度: ${log.confidence})</span>`;
+      content += escHtml(log.message);
+      if (log.action) content += ` <span class="log-action-badge">${escHtml(log.action)}</span>`;
+      if (log.confidence) content += ` <span style="color:var(--text-muted)">confidence: ${log.confidence}</span>`;
       break;
     case 'code':
-      content += `<pre style="margin:4px 0;padding:8px;background:rgba(0,0,0,0.3);border-radius:4px;overflow-x:auto">${escHtml(log.message)}</pre>`;
+      content += `<pre class="code-block">${escHtml(log.message)}</pre>`;
       break;
     case 'code_output':
-      content += `<pre style="margin:4px 0;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;overflow-x:auto">📤 ${escHtml(log.message)}</pre>`;
+      content += `<pre class="code-block" style="border-color:var(--success);">${escHtml(log.message)}</pre>`;
       break;
     case 'flag_submit':
-      content += `🚩 ${escHtml(log.message)}`;
-      break;
     case 'flag_result':
-      content += `✅ ${escHtml(log.message)}`;
-      break;
-    case 'error':
-      content += `❌ ${escHtml(log.message)}`;
+      content += `<strong>${escHtml(log.message)}</strong>`;
       break;
     case 'result':
-      content += `🏁 <strong>${escHtml(log.message)}</strong>`;
-      break;
-    case 'done':
-      content += `⏹ 任务结束 (${escHtml(log.status)})`;
+      content += `<strong>${escHtml(log.message)}</strong>`;
       break;
     default:
       content += escHtml(log.message);
   }
 
-  div.innerHTML = content;
-  container.appendChild(div);
+  el.innerHTML = content;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
 }
 
-// ── Dashboard ────────────────────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────────────
 
-async function loadDashboard() {
-  try {
-    const resp = await fetch(`${API}/api/settings`);
-    const data = await resp.json();
-    const statusEl = document.getElementById('stat-status');
-    if (data.gzctf_url) {
-      statusEl.textContent = '已配置';
-      statusEl.style.color = 'var(--success)';
-    } else {
-      statusEl.textContent = '未配置';
-      statusEl.style.color = 'var(--danger)';
-    }
-  } catch (e) {
-    console.error(e);
-  }
-  loadTasksList();
-}
-
-// ── Helpers ──────────────────────────────────────────────────────
-
-function escHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
-}
-
-function showToast(message, type = 'success') {
-  const toast = document.createElement('div');
-  toast.style.cssText = `
-    position: fixed; top: 20px; right: 20px; z-index: 9999;
-    padding: 12px 20px; border-radius: 8px;
-    background: ${type === 'error' ? 'var(--danger)' : 'var(--success)'};
-    color: #fff; font-size: 14px; font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    animation: fadeIn 0.3s ease;
-  `;
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.3s';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-}
-
-// ── Init ─────────────────────────────────────────────────────────
-loadDashboard();
+refreshDashboard();

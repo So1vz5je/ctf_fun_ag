@@ -1,216 +1,244 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CTF Agent - GZCTF 自动解题系统</title>
+  <title>CTF Agent</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div id="app">
-    <!-- Sidebar -->
-    <nav id="sidebar">
-      <div class="logo">
-        <span class="logo-icon">🤖</span>
-        <span class="logo-text">CTF Agent</span>
+<div id="app">
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="logo">
+      <span class="logo-icon">&#x1F6E1;</span>
+      <span class="logo-text">CTF Agent</span>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <span class="nav-icon">&#x1F3E0;</span><span>Dashboard</span>
+      </li>
+      <li class="nav-item" data-page="games" onclick="navigateTo('games')">
+        <span class="nav-icon">&#x1F3AE;</span><span>Games</span>
+      </li>
+      <li class="nav-item" data-page="challenges" onclick="navigateTo('challenges')">
+        <span class="nav-icon">&#x1F9E9;</span><span>Challenges</span>
+      </li>
+      <li class="nav-item" data-page="agent" onclick="navigateTo('agent')">
+        <span class="nav-icon">&#x1F916;</span><span>Agent</span>
+      </li>
+      <li class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+        <span class="nav-icon">&#x2699;</span><span>Settings</span>
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="theme-switcher">
+        <button class="theme-btn" onclick="setTheme('light')" data-theme-btn="light" title="Light">&#x2600;</button>
+        <button class="theme-btn active" onclick="setTheme('dark')" data-theme-btn="dark" title="Dark">&#x1F319;</button>
+        <button class="theme-btn" onclick="setTheme('pink')" data-theme-btn="pink" title="Pink">&#x1F338;</button>
       </div>
-      <ul class="nav-list">
-        <li class="nav-item active" data-page="dashboard">
-          <span class="nav-icon">📊</span> 仪表板
-        </li>
-        <li class="nav-item" data-page="games">
-          <span class="nav-icon">🏆</span> 比赛列表
-        </li>
-        <li class="nav-item" data-page="challenges">
-          <span class="nav-icon">🎯</span> 题目
-        </li>
-        <li class="nav-item" data-page="agent">
-          <span class="nav-icon">🧠</span> Agent 解题
-        </li>
-        <li class="nav-item" data-page="settings">
-          <span class="nav-icon">⚙️</span> 设置
-        </li>
-      </ul>
-    </nav>
+    </div>
+  </aside>
 
-    <!-- Main content -->
-    <main id="content">
+  <!-- Main content -->
+  <main id="content">
 
-      <!-- Dashboard -->
-      <section id="page-dashboard" class="page active">
-        <h1>仪表板</h1>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="stat-games">-</div>
-            <div class="stat-label">比赛数量</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="stat-tasks">-</div>
-            <div class="stat-label">解题任务</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="stat-status">未连接</div>
-            <div class="stat-label">平台状态</div>
-          </div>
+    <!-- Dashboard -->
+    <section class="page active" id="page-dashboard">
+      <h1>Dashboard</h1>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="stat-games">-</div><div class="stat-label">Games</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-tasks">-</div><div class="stat-label">Tasks</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-running">-</div><div class="stat-label">Running</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-status">-</div><div class="stat-label">Connection</div></div>
+      </div>
+      <div class="card">
+        <h2>Quick Start</h2>
+        <p style="color:var(--text-dim);margin-bottom:16px;">1. Configure your GZCTF URL and credentials in Settings. 2. Browse games and challenges. 3. Start the agent to auto-solve.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="navigateTo('settings')">&#x2699; Settings</button>
+          <button class="btn btn-secondary" onclick="navigateTo('games')">&#x1F3AE; Games</button>
+          <button class="btn btn-solve" onclick="navigateTo('agent')">&#x1F916; Agent</button>
         </div>
-        <div class="card">
-          <h2>快速开始</h2>
-          <p>1. 前往 <a href="#" onclick="navigateTo('settings')">设置</a> 页面配置 GZCTF 平台地址和 LLM API Key</p>
-          <p>2. 在 <a href="#" onclick="navigateTo('games')">比赛列表</a> 中选择一场比赛</p>
-          <p>3. 查看 <a href="#" onclick="navigateTo('challenges')">题目</a> 并启动 Agent 自动解题</p>
-        </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Games -->
-      <section id="page-games" class="page">
-        <div class="page-header">
-          <h1>比赛列表</h1>
-          <button class="btn btn-primary" onclick="loadGames()">刷新</button>
-        </div>
-        <div id="games-list" class="cards-grid">
-          <div class="placeholder">点击刷新加载比赛列表，或先在设置中配置平台地址</div>
-        </div>
-      </section>
+    <!-- Games -->
+    <section class="page" id="page-games">
+      <div class="page-header">
+        <h1>Games</h1>
+        <button class="btn btn-primary" onclick="loadGames()">Refresh</button>
+      </div>
+      <div class="cards-grid" id="games-list">
+        <div class="placeholder">Click Refresh to load games</div>
+      </div>
+    </section>
 
-      <!-- Challenges -->
-      <section id="page-challenges" class="page">
-        <div class="page-header">
-          <h1>题目列表</h1>
-          <div class="header-controls">
-            <select id="game-select" onchange="loadChallenges()">
-              <option value="">选择比赛...</option>
+    <!-- Challenges -->
+    <section class="page" id="page-challenges">
+      <div class="page-header">
+        <h1>Challenges</h1>
+        <div class="header-controls">
+          <select id="challenge-game-select" onchange="loadChallenges(this.value)" style="width:auto;min-width:180px;">
+            <option value="">Select a game...</option>
+          </select>
+          <button class="btn btn-primary" onclick="loadChallenges(document.getElementById('challenge-game-select').value)">Refresh</button>
+        </div>
+      </div>
+      <div id="challenges-container">
+        <div class="placeholder">Select a game to view challenges</div>
+      </div>
+    </section>
+
+    <!-- Agent -->
+    <section class="page" id="page-agent">
+      <div class="page-header">
+        <h1>Agent</h1>
+      </div>
+
+      <!-- Solve controls -->
+      <div class="card">
+        <h2>Start Solving</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Game</label>
+            <select id="agent-game-select" onchange="onAgentGameChange(this.value)">
+              <option value="">Select a game...</option>
             </select>
-            <button class="btn btn-primary" onclick="loadChallenges()">加载题目</button>
           </div>
-        </div>
-        <div id="challenges-list" class="table-container">
-          <div class="placeholder">请先选择一场比赛</div>
-        </div>
-      </section>
-
-      <!-- Agent -->
-      <section id="page-agent" class="page">
-        <div class="page-header">
-          <h1>Agent 解题</h1>
-          <div class="header-controls">
-            <select id="solve-game-select">
-              <option value="">选择比赛...</option>
+          <div class="form-group">
+            <label>Challenge (optional)</label>
+            <select id="agent-challenge-select">
+              <option value="">All Challenges (Per-Category)</option>
             </select>
-            <input id="solve-challenge-id" type="number" placeholder="题目ID (留空=全部)" style="width:160px">
-            <button class="btn btn-primary" onclick="startSolve()">开始解题</button>
+          </div>
+          <div class="checkbox-group">
+            <label>
+              <input type="checkbox" id="agent-concurrent" checked>
+              Concurrent by Category
+            </label>
           </div>
         </div>
-        <!-- Task list -->
-        <div id="tasks-panel" class="card" style="margin-bottom:16px">
-          <h3>解题任务</h3>
-          <div id="tasks-list"></div>
+        <div style="display:flex;gap:12px;margin-top:12px;">
+          <button class="btn btn-solve btn-large" onclick="startSolve()">&#x26A1; Start Agent</button>
         </div>
-        <!-- Log viewer -->
-        <div id="log-viewer" class="card">
-          <div class="log-header">
-            <h3>Agent 日志</h3>
-            <span id="log-task-id" class="badge"></span>
+      </div>
+
+      <!-- Tasks list -->
+      <div class="card" id="tasks-card" style="display:none;">
+        <h2>Tasks</h2>
+        <div id="tasks-list"></div>
+      </div>
+
+      <!-- Log viewer -->
+      <div class="card" id="log-card" style="display:none;">
+        <div class="log-header">
+          <h3>Agent Log</h3>
+          <span id="log-task-id" class="badge badge-info"></span>
+          <span id="log-status" class="connection-status"></span>
+        </div>
+        <div class="log-container" id="log-output"></div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="page" id="page-settings">
+      <div class="page-header">
+        <h1>Settings</h1>
+        <button class="btn btn-primary" onclick="saveSettings()">Save All</button>
+      </div>
+
+      <div class="card">
+        <h2>GZCTF Platform</h2>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label>Platform URL</label>
+            <input type="url" id="set-gzctf-url" placeholder="https://ctf.example.com">
           </div>
-          <div id="log-output" class="log-container">
-            <div class="placeholder">选择一个任务查看日志，或启动新的解题任务</div>
+          <div class="form-group">
+            <label>Team ID</label>
+            <input type="number" id="set-gzctf-team-id" placeholder="Optional">
           </div>
         </div>
-      </section>
-
-      <!-- Settings -->
-      <section id="page-settings" class="page">
-        <h1>设置</h1>
-        <form id="settings-form" onsubmit="saveSettings(event)">
-          <div class="card">
-            <h2>GZCTF 平台</h2>
-            <div class="form-group">
-              <label>平台地址</label>
-              <input type="url" id="set-gzctf-url" placeholder="https://your-gzctf.com">
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>用户名</label>
-                <input type="text" id="set-gzctf-username" placeholder="username">
-              </div>
-              <div class="form-group">
-                <label>密码</label>
-                <input type="password" id="set-gzctf-password" placeholder="password">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>队伍 ID</label>
-              <input type="number" id="set-gzctf-team-id" placeholder="1">
-            </div>
-            <button type="button" class="btn btn-secondary" onclick="testConnection()">测试连接</button>
-            <span id="connection-status"></span>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="set-gzctf-username" placeholder="Username">
           </div>
-
-          <div class="card">
-            <h2>LLM 配置</h2>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Provider</label>
-                <select id="set-llm-provider">
-                  <option value="openai">OpenAI</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="custom">自定义 (OpenAI 兼容)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>模型</label>
-                <input type="text" id="set-llm-model" placeholder="gpt-4o" value="gpt-4o">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>API Key</label>
-              <input type="password" id="set-llm-api-key" placeholder="sk-...">
-            </div>
-            <div class="form-group">
-              <label>自定义 API 地址 (可选)</label>
-              <input type="url" id="set-llm-base-url" placeholder="https://api.deepseek.com">
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Temperature</label>
-                <input type="number" id="set-llm-temperature" value="0.1" step="0.1" min="0" max="2">
-              </div>
-              <div class="form-group">
-                <label>Max Tokens</label>
-                <input type="number" id="set-llm-max-tokens" value="4096">
-              </div>
-            </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="set-gzctf-password" placeholder="Password">
           </div>
+        </div>
+        <div class="form-group">
+          <label>GZCTF Token (Cookie)</label>
+          <input type="password" id="set-gzctf-token" placeholder="Paste GZCTF_Token cookie value here (alternative to username/password)">
+        </div>
+        <div style="display:flex;gap:12px;margin-top:12px;">
+          <button class="btn btn-secondary" onclick="testConnection()">&#x1F50C; Test Connection</button>
+        </div>
+      </div>
 
-          <div class="card">
-            <h2>Agent 行为</h2>
-            <div class="form-row">
-              <div class="form-group">
-                <label>最大重试轮次</label>
-                <input type="number" id="set-agent-retries" value="3" min="1" max="20">
-              </div>
-              <div class="form-group checkbox-group">
-                <label><input type="checkbox" id="set-agent-auto-submit" checked> 自动提交 Flag</label>
-              </div>
-              <div class="form-group checkbox-group">
-                <label><input type="checkbox" id="set-agent-auto-container" checked> 自动启动靶机</label>
-              </div>
-              <div class="form-group checkbox-group">
-                <label><input type="checkbox" id="set-agent-skip-solved" checked> 跳过已解决题目</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>解题分类 (逗号分隔)</label>
-              <input type="text" id="set-agent-categories" value="Misc,Crypto,Web,Forensics,PPC,OSINT">
-            </div>
+      <div class="card">
+        <h2>LLM Configuration</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Provider</label>
+            <select id="set-llm-provider">
+              <option value="openai">OpenAI</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="ollama">Ollama</option>
+            </select>
           </div>
+          <div class="form-group">
+            <label>Model</label>
+            <input type="text" id="set-llm-model" placeholder="gpt-4o">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="set-llm-api-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+          <label>Base URL</label>
+          <input type="url" id="set-llm-base-url" placeholder="https://api.openai.com/v1 (leave empty for default)">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Temperature</label>
+            <input type="number" id="set-llm-temperature" step="0.05" min="0" max="2" placeholder="0.1">
+          </div>
+          <div class="form-group">
+            <label>Max Tokens</label>
+            <input type="number" id="set-llm-max-tokens" placeholder="4096">
+          </div>
+        </div>
+      </div>
 
-          <button type="submit" class="btn btn-primary btn-large">保存设置</button>
-        </form>
-      </section>
+      <div class="card">
+        <h2>Agent Behavior</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Max Retries</label>
+            <input type="number" id="set-agent-max-retries" placeholder="3">
+          </div>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="set-agent-auto-submit" checked> Auto Submit</label>
+          </div>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="set-agent-auto-container" checked> Auto Start Container</label>
+          </div>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="set-agent-skip-solved" checked> Skip Solved</label>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    </main>
-  </div>
+  </main>
+</div>
 
-  <script src="/static/app.js"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>

@@ -28,13 +28,19 @@ class GZCTFClient:
         self.base_url = config.url.rstrip("/")
         self._username = config.username
         self._password = config.password
+        self._token = config.token
         self._team_id = config.team_id
+        cookies = None
+        if self._token:
+            cookies = httpx.Cookies()
+            cookies.set("GZCTF_Token", self._token)
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=30.0,
             follow_redirects=True,
+            cookies=cookies,
         )
-        self._logged_in = False
+        self._logged_in = bool(self._token)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -54,7 +60,10 @@ class GZCTFClient:
     # ------------------------------------------------------------------
 
     async def login(self) -> UserProfile:
-        """Authenticate and store session cookie."""
+        """Authenticate via username/password or pre-set cookie token."""
+        if self._logged_in and self._token:
+            console.print("[green]✓ 使用 Token 登录[/green]")
+            return await self.get_profile()
         resp = await self._client.post(
             "/api/account/login",
             json={"userName": self._username, "password": self._password},

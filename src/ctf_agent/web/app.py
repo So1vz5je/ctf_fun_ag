@@ -15,7 +15,6 @@ from pydantic import BaseModel
 
 from ctf_agent.web.state import AppState
 
-# Resolve static dir
 STATIC_DIR = Path(__file__).resolve().parent.parent.parent.parent / "static"
 
 app = FastAPI(title="CTF Agent", version="0.1.0")
@@ -37,6 +36,7 @@ class SettingsUpdate(BaseModel):
     gzctf_url: str = ""
     gzctf_username: str = ""
     gzctf_password: str = ""
+    gzctf_token: str = ""
     gzctf_team_id: int | None = None
     llm_provider: str = "openai"
     llm_api_key: str = ""
@@ -54,6 +54,7 @@ class SettingsUpdate(BaseModel):
 class SolveRequest(BaseModel):
     game_id: int
     challenge_id: int | None = None
+    concurrent: bool = True
 
 
 # ── Settings ──────────────────────────────────────────────────────────
@@ -61,12 +62,12 @@ class SolveRequest(BaseModel):
 
 @app.get("/api/settings")
 async def get_settings():
-    """Return current settings (password masked)."""
     cfg = state.config
     return {
         "gzctf_url": cfg.gzctf.url,
         "gzctf_username": cfg.gzctf.username,
         "gzctf_password": "••••••••" if cfg.gzctf.password else "",
+        "gzctf_token": _mask_key(cfg.gzctf.token) if cfg.gzctf.token else "",
         "gzctf_team_id": cfg.gzctf.team_id,
         "llm_provider": cfg.llm.provider,
         "llm_api_key": _mask_key(cfg.llm.api_key),
@@ -84,12 +85,13 @@ async def get_settings():
 
 @app.post("/api/settings")
 async def update_settings(req: SettingsUpdate):
-    """Update settings in memory (and optionally persist)."""
     cfg = state.config
     cfg.gzctf.url = req.gzctf_url
     cfg.gzctf.username = req.gzctf_username
     if req.gzctf_password and req.gzctf_password != "••••••••":
         cfg.gzctf.password = req.gzctf_password
+    if req.gzctf_token and "••••" not in req.gzctf_token:
+        cfg.gzctf.token = req.gzctf_token
     cfg.gzctf.team_id = req.gzctf_team_id
     cfg.llm.provider = req.llm_provider
     if req.llm_api_key and "••••" not in req.llm_api_key:
@@ -105,8 +107,8 @@ async def update_settings(req: SettingsUpdate):
     if req.agent_categories is not None:
         cfg.agent.categories = req.agent_categories
 
-    # Persist to config.yaml
     state.save_config()
+    await state.reset_client()
 
     return {"status": "ok"}
 
@@ -116,7 +118,6 @@ async def update_settings(req: SettingsUpdate):
 
 @app.post("/api/login")
 async def login():
-    """Login to GZCTF and return profile."""
     client = await state.get_client()
     profile = await client.login()
     return profile.model_dump(by_alias=True)
@@ -158,19 +159,20 @@ async def get_challenge_detail(game_id: int, challenge_id: int):
 
 @app.post("/api/solve")
 async def start_solve(req: SolveRequest):
-    """Start an agent solve task. Returns a task_id for WebSocket log streaming."""
     task_id = str(uuid.uuid4())[:8]
-    state.tasks[task_id] = {"status": "running", "game_id": req.game_id, "challenge_id": req.challenge_id, "logs": []}
-
-    # Launch in background
-    asyncio.create_task(_run_solve(task_id, req.game_id, req.challenge_id))
-
+    state.tasks[task_id] = {
+        "status": "running",
+        "game_id": req.game_id,
+        "challenge_id": req.challenge_id,
+        "concurrent": req.concurrent,
+        "logs": [],
+    }
+    asyncio.create_task(_run_solve(task_id, req.game_id, req.challenge_id, req.concurrent))
     return {"task_id": task_id, "status": "running"}
 
 
 @app.get("/api/tasks")
 async def list_tasks():
-    """List all solve tasks."""
     return {
         tid: {
             "status": t["status"],
@@ -184,7 +186,6 @@ async def list_tasks():
 
 @app.get("/api/tasks/{task_id}/logs")
 async def get_task_logs(task_id: str):
-    """Get all logs for a task (polling fallback)."""
     task = state.tasks.get(task_id)
     if not task:
         return {"error": "task not found"}
@@ -196,7 +197,6 @@ async def get_task_logs(task_id: str):
 
 @app.websocket("/ws/logs/{task_id}")
 async def ws_logs(websocket: WebSocket, task_id: str):
-    """Stream agent logs in real time via WebSocket."""
     await websocket.accept()
     seen = 0
     try:
@@ -224,8 +224,12 @@ async def ws_logs(websocket: WebSocket, task_id: str):
 # ── Background solve runner ───────────────────────────────────────────
 
 
-async def _run_solve(task_id: str, game_id: int, challenge_id: int | None):
-    """Run the agent and emit logs to the task store."""
+async def _run_solve(
+    task_id: str,
+    game_id: int,
+    challenge_id: int | None,
+    concurrent: bool = True,
+):
     from ctf_agent.agent.core import CTFAgent
 
     task = state.tasks[task_id]
@@ -233,9 +237,6 @@ async def _run_solve(task_id: str, game_id: int, challenge_id: int | None):
     def emit(log_type: str, message: str, **extra):
         entry = {"type": log_type, "message": message, **extra}
         task["logs"].append(entry)
-        # Also broadcast to any connected WebSocket clients
-        for q in state.ws_queues.get(task_id, []):
-            q.put_nowait(entry)
 
     try:
         client = await state.get_client()
@@ -244,19 +245,36 @@ async def _run_solve(task_id: str, game_id: int, challenge_id: int | None):
 
         agent = CTFAgent(state.config, client)
 
-        # Monkey-patch the agent to emit logs
-        _patch_agent_logging(agent, emit)
-
         if challenge_id:
             emit("info", f"开始解题: 比赛#{game_id} 题目#{challenge_id}")
+            _patch_agent_logging(agent, emit)
             result = await agent.solve_challenge(game_id, challenge_id)
             emit("result", f"解题结果: {result}", result=result)
+        elif concurrent:
+            # Per-category concurrent agents
+            emit(
+                "info",
+                f"开始并发解题: 比赛#{game_id} (每个方向一个 Agent)",
+            )
+            results = await _run_concurrent_by_category(agent, game_id, emit)
+            solved = sum(1 for v in results.values() if v == "Accepted")
+            total = len(results)
+            emit(
+                "result",
+                f"比赛完成: {solved}/{total} 题解决",
+                results=results,
+            )
         else:
-            emit("info", f"开始自动解题: 比赛#{game_id}")
+            emit("info", f"开始顺序解题: 比赛#{game_id}")
+            _patch_agent_logging(agent, emit)
             results = await agent.run_game(game_id)
             solved = sum(1 for v in results.values() if v == "Accepted")
             total = len(results)
-            emit("result", f"比赛完成: {solved}/{total} 题解决", results=results)
+            emit(
+                "result",
+                f"比赛完成: {solved}/{total} 题解决",
+                results=results,
+            )
 
         task["status"] = "completed"
     except Exception as e:
@@ -264,23 +282,99 @@ async def _run_solve(task_id: str, game_id: int, challenge_id: int | None):
         task["status"] = "error"
 
 
+async def _run_concurrent_by_category(agent, game_id: int, emit):
+    """Run one agent per category concurrently."""
+    from ctf_agent.agent.core import CTFAgent
+
+    categories = await agent.api.get_challenges(game_id)
+    all_results: dict[int, str] = {}
+    allowed = agent.config.agent.categories
+
+    # Group challenges by category
+    cat_tasks = {}
+    for cat, challenges in categories.items():
+        if allowed and cat not in allowed:
+            for ch in challenges:
+                all_results[ch.id] = "skipped_category"
+                emit("info", f"[{cat}] 跳过分类: {ch.title}")
+            continue
+
+        unsolved = [ch for ch in challenges if not (agent.config.agent.skip_solved and ch.is_solved)]
+        if not unsolved:
+            for ch in challenges:
+                if ch.is_solved:
+                    all_results[ch.id] = "skipped_solved"
+            continue
+
+        cat_tasks[cat] = unsolved
+        emit(
+            "category_start",
+            f"[{cat}] 启动 Agent — {len(unsolved)} 道题待解",
+            category=cat,
+            count=len(unsolved),
+        )
+
+    async def _solve_category(cat: str, challenges):
+        cat_agent = CTFAgent(agent.config, agent.api)
+
+        def cat_emit(log_type: str, message: str, **extra):
+            emit(log_type, f"[{cat}] {message}", category=cat, **extra)
+
+        _patch_agent_logging(cat_agent, cat_emit)
+
+        results = {}
+        for ch in challenges:
+            cat_emit("info", f"开始: {ch.title} (#{ch.id})")
+            try:
+                r = await cat_agent.solve_challenge(game_id, ch.id, cat)
+                results[ch.id] = r
+                status_icon = "solved" if r == "Accepted" else "failed"
+                cat_emit(
+                    "challenge_done",
+                    f"{ch.title} → {r}",
+                    status=status_icon,
+                )
+            except Exception as e:
+                results[ch.id] = "error"
+                cat_emit("error", f"{ch.title} 出错: {e}")
+        return results
+
+    # Run all categories concurrently
+    tasks = [_solve_category(cat, chs) for cat, chs in cat_tasks.items()]
+    category_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for result in category_results:
+        if isinstance(result, dict):
+            all_results.update(result)
+        elif isinstance(result, Exception):
+            emit("error", f"分类 Agent 出错: {result}")
+
+    return all_results
+
+
 def _patch_agent_logging(agent, emit):
-    """Patch the agent to emit structured logs for the web UI."""
     original_solve_loop = agent._llm_solve_loop
 
     async def patched_solve_loop(game_id, detail, category, attachment_info, container_info, file_content):
-        emit("challenge", f"题目: {detail.title}", title=detail.title, category=category, score=detail.score)
-        emit("info", f"分类: {category} | 类型: {detail.type} | 分值: {detail.score}")
+        emit(
+            "challenge",
+            f"题目: {detail.title}",
+            title=detail.title,
+            category=category,
+            score=detail.score,
+        )
+        emit(
+            "info",
+            f"分类: {category} | 类型: {detail.type} | 分值: {detail.score}",
+        )
 
         if detail.content:
             emit("description", detail.content[:500])
-
         if attachment_info != "无附件":
             emit("attachment", attachment_info)
         if container_info != "无靶机":
             emit("container", container_info)
 
-        # Patch the inner LLM call to log thinking/actions
         original_llm_create = agent.llm.chat.completions.create
 
         async def logged_llm_create(**kwargs):
@@ -289,16 +383,12 @@ def _patch_agent_logging(agent, emit):
             raw = result.choices[0].message.content or "{}"
             try:
                 data = json.loads(raw)
-                thinking = data.get("thinking", "")
-                action = data.get("action", "")
-                action_input = data.get("action_input", "")
-                confidence = data.get("confidence", 0)
                 emit(
                     "llm_response",
-                    thinking,
-                    action=action,
-                    action_input=str(action_input)[:500],
-                    confidence=confidence,
+                    data.get("thinking", ""),
+                    action=data.get("action", ""),
+                    action_input=str(data.get("action_input", ""))[:500],
+                    confidence=data.get("confidence", 0),
                 )
             except json.JSONDecodeError:
                 emit("llm_response", raw[:500])
@@ -306,7 +396,6 @@ def _patch_agent_logging(agent, emit):
 
         agent.llm.chat.completions.create = logged_llm_create
 
-        # Patch code execution to log
         original_execute = agent._execute_code
 
         async def logged_execute(code):
@@ -317,7 +406,6 @@ def _patch_agent_logging(agent, emit):
 
         agent._execute_code = logged_execute
 
-        # Patch flag submission to log
         original_submit = agent._try_submit
 
         async def logged_submit(gid, cid, flag):
@@ -352,10 +440,7 @@ async def index():
     index_path = STATIC_DIR / "index.html"
     if index_path.exists():
         return FileResponse(str(index_path))
-    return {"message": "CTF Agent API is running. Place static files in /static/"}
-
-
-# ── Helpers ───────────────────────────────────────────────────────────
+    return {"message": "CTF Agent API is running."}
 
 
 def _mask_key(key: str) -> str:

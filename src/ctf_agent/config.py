@@ -15,6 +15,7 @@ class GZCTFConfig(BaseModel):
     url: str = ""
     username: str = ""
     password: str = ""
+    token: str = ""
     team_id: int | None = None
 
 
@@ -68,6 +69,8 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
         config.gzctf.password = pwd
     if team := os.getenv("GZCTF_TEAM_ID"):
         config.gzctf.team_id = int(team)
+    if token := os.getenv("GZCTF_TOKEN"):
+        config.gzctf.token = token
     if key := os.getenv("LLM_API_KEY"):
         config.llm.api_key = key
     if base := os.getenv("LLM_BASE_URL"):
