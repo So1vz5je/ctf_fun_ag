@@ -136,5 +136,17 @@ async def _solve(config, game_id: int, challenge_id: int | None):  # noqa: ANN00
             console.print(f"\n[bold]总结: {results}[/bold]")
 
 
+@main.command()
+@click.option("--host", default="0.0.0.0", help="监听地址")
+@click.option("--port", "-p", default=8000, type=int, help="监听端口")
+@click.pass_context
+def serve(ctx: click.Context, host: str, port: int) -> None:
+    """启动 Web 界面服务"""
+    import uvicorn
+
+    console.print(Panel(f"[bold]CTF Agent Web UI[/bold]\n  http://{host}:{port}"))
+    uvicorn.run("ctf_agent.web.app:app", host=host, port=port, reload=False)
+
+
 if __name__ == "__main__":
     main()
