@@ -1,4 +1,6 @@
-/* ── CTF Agent Frontend ────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════
+   GZ_CTF Agent — Frontend Application
+   ══════════════════════════════════════════════════════════════════════ */
 
 // ── Theme ────────────────────────────────────────────────────────────
 
@@ -33,6 +35,7 @@ function navigateTo(page) {
   if (page === 'games') loadGames();
   if (page === 'agent') { refreshSelects(); loadTasksList(); }
   if (page === 'challenges') refreshChallengeGameSelect();
+  if (page === 'logs') refreshFullLogs();
 }
 
 // ── API helpers ──────────────────────────────────────────────────────
@@ -73,20 +76,203 @@ function showToast(msg, type = 'info') {
 
 // ── Dashboard ────────────────────────────────────────────────────────
 
+let dashboardData = {
+  games: [],
+  challengesByGame: {},
+  tasks: {},
+  startTime: Date.now(),
+};
+
+let uptimeInterval = null;
+
+function startUptimeTimer() {
+  if (uptimeInterval) clearInterval(uptimeInterval);
+  uptimeInterval = setInterval(() => {
+    const elapsed = Date.now() - dashboardData.startTime;
+    const h = String(Math.floor(elapsed / 3600000)).padStart(2, '0');
+    const m = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, '0');
+    const s = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, '0');
+    const el = document.getElementById('stat-uptime');
+    if (el) el.textContent = `${h}:${m}:${s}`;
+  }, 1000);
+}
+
 async function refreshDashboard() {
   try {
     const tasks = await api('/api/tasks');
-    const taskCount = Object.keys(tasks).length;
+    dashboardData.tasks = tasks;
+    const taskIds = Object.keys(tasks);
     const running = Object.values(tasks).filter(t => t.status === 'running').length;
-    document.getElementById('stat-tasks').textContent = taskCount;
-    document.getElementById('stat-running').textContent = running;
 
+    // Update connection status
+    const indicator = document.getElementById('connection-indicator');
+    const statusText = document.getElementById('header-status');
+    indicator.classList.add('online');
+    statusText.textContent = running > 0 ? '运行中' : '在线';
+
+    // Update recent tasks table
+    updateRecentTasks(tasks);
+
+    // Try to load games
     const games = await api('/api/games').catch(() => []);
-    document.getElementById('stat-games').textContent = Array.isArray(games) ? games.length : '-';
-    document.getElementById('stat-status').textContent = 'Online';
+    dashboardData.games = Array.isArray(games) ? games : [];
+    document.getElementById('stat-games').textContent = dashboardData.games.length;
+
+    // If we have games, try to load challenges for the first active one
+    if (dashboardData.games.length > 0) {
+      updateCurrentGame(dashboardData.games[0]);
+      try {
+        const challenges = await api(`/api/games/${dashboardData.games[0].id}/challenges`);
+        dashboardData.challengesByGame[dashboardData.games[0].id] = challenges;
+        updateChallengeStats(challenges);
+        drawCategoryChart(challenges);
+      } catch {
+        // games loaded but challenges failed
+      }
+    }
   } catch {
-    document.getElementById('stat-status').textContent = 'Offline';
+    const indicator = document.getElementById('connection-indicator');
+    indicator.classList.remove('online');
+    document.getElementById('header-status').textContent = '离线';
   }
+}
+
+async function refreshDashboardData() {
+  showToast('正在刷新...', 'info');
+  await refreshDashboard();
+  showToast('刷新完成', 'success');
+}
+
+function updateCurrentGame(game) {
+  const container = document.getElementById('current-game-info');
+  if (!game) return;
+  const url = game.inviteCode ? `https://gz.imxbt.cn/games/${game.id}` : '';
+  container.innerHTML = `
+    <div class="current-game-row">
+      <div class="current-game-icon">CTF</div>
+      <div class="current-game-details">
+        <h4>${escHtml(game.title)}</h4>
+        <div class="current-game-meta">
+          ${url ? `<div>${escHtml(url)}</div>` : ''}
+          <div>队伍数: ${game.teamCount || '-'}</div>
+        </div>
+      </div>
+      <div class="current-game-progress">
+        <div class="progress-ring-label" id="progress-pct">0%</div>
+        <div class="progress-ring-sub">解题进度</div>
+      </div>
+    </div>
+  `;
+}
+
+function updateChallengeStats(challenges) {
+  let total = 0;
+  let solved = 0;
+  for (const [, items] of Object.entries(challenges)) {
+    total += items.length;
+    solved += items.filter(c => c.isSolved).length;
+  }
+  document.getElementById('stat-challenges').textContent = total;
+  document.getElementById('stat-solved').textContent = solved;
+  const pct = total > 0 ? ((solved / total) * 100).toFixed(1) : '0';
+  document.getElementById('stat-accuracy').textContent = pct + '%';
+  const pctEl = document.getElementById('progress-pct');
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+
+function updateRecentTasks(tasks) {
+  const tbody = document.getElementById('recent-tasks-body');
+  const ids = Object.keys(tasks);
+  if (!ids.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="table-empty">暂无任务</td></tr>';
+    return;
+  }
+  tbody.innerHTML = ids.slice(-5).reverse().map(tid => {
+    const t = tasks[tid];
+    const statusClass = t.status === 'running' ? 'badge-running'
+      : t.status === 'completed' ? 'badge-completed' : 'badge-error';
+    const type = t.challenge_id ? '解题任务' : '比赛任务';
+    const name = t.challenge_id ? `Ch#${t.challenge_id}` : `Game#${t.game_id}`;
+    return `<tr>
+      <td>${type}</td>
+      <td>${name}</td>
+      <td><span class="badge ${statusClass}">${t.status}</span></td>
+      <td style="font-size:11px;color:var(--text-muted);">${new Date().toLocaleTimeString()}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Category Chart (Canvas donut) ────────────────────────────────────
+
+const CATEGORY_COLORS = {
+  'Web': '#3b82f6',
+  'Pwn': '#ef4444',
+  'Misc': '#8b5cf6',
+  'Reverse': '#f59e0b',
+  'Crypto': '#10b981',
+  'Forensics': '#06b6d4',
+  'OSINT': '#ec4899',
+  'Blockchain': '#6366f1',
+};
+
+function getCategoryColor(cat, idx) {
+  if (CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat];
+  const fallback = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+  return fallback[idx % fallback.length];
+}
+
+function drawCategoryChart(challenges) {
+  const canvas = document.getElementById('category-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 128 * dpr;
+  canvas.height = 128 * dpr;
+  canvas.style.width = '128px';
+  canvas.style.height = '128px';
+  ctx.scale(dpr, dpr);
+
+  const entries = Object.entries(challenges);
+  let total = 0;
+  const segments = [];
+  entries.forEach(([cat, items], idx) => {
+    const count = items.length;
+    total += count;
+    segments.push({ cat, count, color: getCategoryColor(cat, idx) });
+  });
+
+  document.getElementById('chart-total-num').textContent = total;
+
+  const cx = 64, cy = 64, outerR = 58, innerR = 38;
+  let startAngle = -Math.PI / 2;
+
+  if (total === 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+    ctx.arc(cx, cy, innerR, 0, Math.PI * 2, true);
+    ctx.fillStyle = 'rgba(128,128,128,0.1)';
+    ctx.fill();
+  } else {
+    segments.forEach(seg => {
+      const sweep = (seg.count / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, startAngle, startAngle + sweep);
+      ctx.arc(cx, cy, innerR, startAngle + sweep, startAngle, true);
+      ctx.closePath();
+      ctx.fillStyle = seg.color;
+      ctx.fill();
+      startAngle += sweep;
+    });
+  }
+
+  // Legend
+  const legend = document.getElementById('chart-legend');
+  legend.innerHTML = segments.map(s => `
+    <div class="legend-item">
+      <span class="legend-dot" style="background:${s.color}"></span>
+      ${escHtml(s.cat)} (${s.count})
+    </div>
+  `).join('');
 }
 
 // ── Settings ─────────────────────────────────────────────────────────
@@ -131,15 +317,15 @@ async function saveSettings() {
     agent_skip_solved: document.getElementById('set-agent-skip-solved').checked,
   };
   await api('/api/settings', { method: 'POST', body: JSON.stringify(data) });
-  showToast('Settings saved', 'success');
+  showToast('配置已保存', 'success');
 }
 
 async function testConnection() {
-  showToast('Testing connection...', 'info');
+  showToast('正在测试连接...', 'info');
   try {
     const profile = await api('/api/login', { method: 'POST' });
     const name = profile.userName || profile.bio || 'OK';
-    showToast('Connected: ' + name, 'success');
+    showToast('连接成功: ' + name, 'success');
   } catch { /* toast already shown */ }
 }
 
@@ -149,12 +335,12 @@ let gamesCache = [];
 
 async function loadGames() {
   const container = document.getElementById('games-list');
-  container.innerHTML = '<div class="placeholder">Loading...</div>';
+  container.innerHTML = '<div class="empty-state small"><p>加载中...</p></div>';
   try {
     const games = await api('/api/games');
     gamesCache = games;
     if (!games.length) {
-      container.innerHTML = '<div class="placeholder">No games found. Check your settings and connection.</div>';
+      container.innerHTML = '<div class="empty-state"><p>未找到比赛，请检查配置和连接</p></div>';
       return;
     }
     container.innerHTML = games.map(g => `
@@ -163,12 +349,12 @@ async function loadGames() {
         <div class="game-summary">${escHtml((g.summary || g.content || '').slice(0, 120))}</div>
         <div class="game-meta">
           <span>#${g.id}</span>
-          <span>${g.teamCount || '-'} teams</span>
+          <span>${g.teamCount || '-'} 支队伍</span>
         </div>
       </div>
     `).join('');
   } catch {
-    container.innerHTML = '<div class="placeholder">Failed to load games</div>';
+    container.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
   }
 }
 
@@ -196,7 +382,7 @@ async function refreshChallengeGameSelect() {
 
 function populateGameSelect(sel, games) {
   const current = sel.value;
-  sel.innerHTML = '<option value="">Select a game...</option>';
+  sel.innerHTML = '<option value="">选择比赛...</option>';
   games.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g.id;
@@ -209,40 +395,48 @@ function populateGameSelect(sel, games) {
 async function loadChallenges(gameId) {
   const container = document.getElementById('challenges-container');
   if (!gameId) {
-    container.innerHTML = '<div class="placeholder">Select a game to view challenges</div>';
+    container.innerHTML = '<div class="empty-state"><p>选择比赛查看题目</p></div>';
     return;
   }
-  container.innerHTML = '<div class="placeholder">Loading...</div>';
+  container.innerHTML = '<div class="empty-state small"><p>加载中...</p></div>';
   try {
     const categories = await api(`/api/games/${gameId}/challenges`);
     let html = '';
     for (const [cat, challenges] of Object.entries(categories)) {
+      const solved = challenges.filter(c => c.isSolved).length;
       html += `
-        <div class="card" style="margin-bottom:16px;">
-          <h3><span class="badge badge-category">${escHtml(cat)}</span> ${challenges.length} challenges</h3>
-          <div class="table-container"><table>
-            <thead><tr><th>ID</th><th>Title</th><th>Score</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody>
-              ${challenges.map(c => `
-                <tr>
-                  <td>${c.id}</td>
-                  <td>${escHtml(c.title)}</td>
-                  <td>${c.score || c.originalScore || '-'}</td>
-                  <td>${c.isSolved
-                    ? '<span class="badge badge-solved">Solved</span>'
-                    : '<span class="badge badge-unsolved">Unsolved</span>'
-                  }</td>
-                  <td><button class="btn btn-small btn-solve" onclick="quickSolve(${gameId},${c.id})">Solve</button></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table></div>
+        <div class="challenge-category-card">
+          <div class="challenge-category-header">
+            <h3>
+              <span class="badge badge-category">${escHtml(cat)}</span>
+              ${challenges.length} 题 (${solved} 已解)
+            </h3>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="dash-table">
+              <thead><tr><th>ID</th><th>标题</th><th>分值</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                ${challenges.map(c => `
+                  <tr>
+                    <td>${c.id}</td>
+                    <td style="font-weight:500;">${escHtml(c.title)}</td>
+                    <td>${c.score || c.originalScore || '-'}</td>
+                    <td>${c.isSolved
+                      ? '<span class="badge badge-solved">已解</span>'
+                      : '<span class="badge badge-unsolved">未解</span>'
+                    }</td>
+                    <td><button class="btn btn-small btn-solve" onclick="quickSolve(${gameId},${c.id})">解题</button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
       `;
     }
-    container.innerHTML = html || '<div class="placeholder">No challenges found</div>';
+    container.innerHTML = html || '<div class="empty-state"><p>暂无题目</p></div>';
   } catch {
-    container.innerHTML = '<div class="placeholder">Failed to load challenges</div>';
+    container.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
   }
 }
 
@@ -270,7 +464,7 @@ async function refreshSelects() {
 
 async function onAgentGameChange(gameId) {
   const sel = document.getElementById('agent-challenge-select');
-  sel.innerHTML = '<option value="">All Challenges (Per-Category)</option>';
+  sel.innerHTML = '<option value="">全部题目（按方向并发）</option>';
   if (!gameId) return;
   try {
     const categories = await api(`/api/games/${gameId}/challenges`);
@@ -290,7 +484,7 @@ let currentTaskId = null;
 
 async function startSolve() {
   const gameId = parseInt(document.getElementById('agent-game-select').value);
-  if (!gameId) { showToast('Please select a game', 'warning'); return; }
+  if (!gameId) { showToast('请选择比赛', 'warning'); return; }
   const challengeId = parseInt(document.getElementById('agent-challenge-select').value) || null;
   const concurrent = document.getElementById('agent-concurrent').checked;
 
@@ -300,11 +494,36 @@ async function startSolve() {
       body: JSON.stringify({ game_id: gameId, challenge_id: challengeId, concurrent }),
     });
     currentTaskId = result.task_id;
-    showToast(`Task ${result.task_id} started`, 'success');
+    showToast(`任务 ${result.task_id} 已启动`, 'success');
     showLogViewer(result.task_id);
     connectLogStream(result.task_id);
     loadTasksList();
+    // Update flow step
+    setFlowStep('read');
   } catch { /* toast already shown */ }
+}
+
+function stopAllTasks() {
+  showToast('停止功能开发中...', 'warning');
+}
+
+function setFlowStep(step) {
+  const steps = ['read', 'download', 'container', 'solve', 'submit'];
+  const idx = steps.indexOf(step);
+  steps.forEach((s, i) => {
+    const el = document.getElementById('flow-' + s);
+    if (!el) return;
+    el.classList.remove('active', 'done');
+    if (i < idx) el.classList.add('done');
+    if (i === idx) el.classList.add('active');
+  });
+  const info = document.getElementById('agent-current-info');
+  const labels = { read: '正在读取题目...', download: '正在下载附件...', container: '正在启动靶机...', solve: '正在解题分析...', submit: '正在提交Flag...' };
+  if (info) info.innerHTML = `<span class="agent-current-label">${labels[step] || '等待任务'}</span>`;
+  // Progress
+  const pct = ((idx + 1) / steps.length) * 100;
+  const bar = document.getElementById('agent-progress');
+  if (bar) bar.style.width = pct + '%';
 }
 
 function showLogViewer(taskId) {
@@ -312,7 +531,7 @@ function showLogViewer(taskId) {
   document.getElementById('log-output').innerHTML = '';
   document.getElementById('log-task-id').textContent = taskId;
   document.getElementById('log-task-id').className = 'badge badge-running';
-  document.getElementById('log-status').textContent = 'Connecting...';
+  document.getElementById('log-status').textContent = '连接中...';
 }
 
 async function loadTasksList() {
@@ -331,9 +550,9 @@ async function loadTasksList() {
         <div class="task-item" onclick="viewTaskLogs('${tid}')">
           <div class="task-info">
             <span class="badge ${statusClass}">${t.status}</span>
-            <span>Task ${tid} &mdash; Game #${t.game_id}${t.challenge_id ? ' Ch#' + t.challenge_id : ' (All)'}</span>
+            <span style="font-size:13px;">任务 ${tid} — Game #${t.game_id}${t.challenge_id ? ' Ch#' + t.challenge_id : ' (全部)'}</span>
           </div>
-          <span style="color:var(--text-muted);font-size:12px;">${t.log_count} logs</span>
+          <span style="color:var(--text-muted);font-size:12px;">${t.log_count} 条日志</span>
         </div>
       `;
     }).join('');
@@ -369,7 +588,7 @@ function connectLogStream(taskId) {
   currentWs = ws;
 
   ws.onopen = () => {
-    document.getElementById('log-status').textContent = 'Live';
+    document.getElementById('log-status').textContent = '实时';
     document.getElementById('log-status').style.color = 'var(--success)';
   };
 
@@ -377,18 +596,33 @@ function connectLogStream(taskId) {
     const log = JSON.parse(event.data);
     const logOutput = document.getElementById('log-output');
     appendLog(logOutput, log);
+
+    // Also push to dashboard log
+    const dashLog = document.getElementById('dash-log-output');
+    if (dashLog) {
+      const emptyState = dashLog.querySelector('.empty-state');
+      if (emptyState) emptyState.remove();
+      appendLog(dashLog, log, true);
+    }
+
+    // Update flow steps based on log type
+    if (log.type === 'challenge' || log.type === 'category_start') setFlowStep('read');
+    if (log.message && log.message.includes('下载')) setFlowStep('download');
+    if (log.message && log.message.includes('靶机')) setFlowStep('container');
+    if (log.type === 'thinking' || log.type === 'llm_response') setFlowStep('solve');
+    if (log.type === 'flag_submit') setFlowStep('submit');
+
     if (log.type === 'done') {
       document.getElementById('log-task-id').className =
         `badge ${log.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
-      document.getElementById('log-status').textContent = log.status || 'Done';
+      document.getElementById('log-status').textContent = log.status || '完成';
       loadTasksList();
     }
   };
 
   ws.onerror = () => {
-    document.getElementById('log-status').textContent = 'Disconnected';
+    document.getElementById('log-status').textContent = '已断开';
     document.getElementById('log-status').style.color = 'var(--danger)';
-    // Fallback to polling
     pollLogs(taskId);
   };
 
@@ -419,9 +653,37 @@ function pollLogs(taskId) {
   }, 1500);
 }
 
+// ── Full Logs page ───────────────────────────────────────────────────
+
+async function refreshFullLogs() {
+  const container = document.getElementById('full-log-output');
+  try {
+    const tasks = await api('/api/tasks');
+    const ids = Object.keys(tasks);
+    if (!ids.length) return;
+    container.innerHTML = '';
+    // Show logs from all tasks
+    for (const tid of ids.reverse()) {
+      try {
+        const data = await api(`/api/tasks/${tid}/logs`);
+        const header = document.createElement('div');
+        header.className = 'log-entry log-category_start';
+        header.innerHTML = `<strong>═══ 任务 ${tid} (Game#${tasks[tid].game_id}) ═══</strong>`;
+        container.appendChild(header);
+        (data.logs || []).forEach(log => appendLog(container, log));
+      } catch { /* skip */ }
+    }
+  } catch { /* skip */ }
+}
+
+function clearDashLogs() {
+  const el = document.getElementById('full-log-output');
+  if (el) el.innerHTML = '<div class="empty-state small"><p>日志已清空</p></div>';
+}
+
 // ── Log rendering ────────────────────────────────────────────────────
 
-function appendLog(container, log) {
+function appendLog(container, log, compact = false) {
   const el = document.createElement('div');
   el.className = `log-entry log-${log.type || 'info'}`;
 
@@ -430,6 +692,19 @@ function appendLog(container, log) {
 
   if (log.category) {
     content += `<span class="log-cat-tag">${escHtml(log.category)}</span>`;
+  }
+
+  const typeLabels = {
+    info: 'INFO',
+    error: 'ERROR',
+    challenge: 'TASK',
+    flag_submit: 'FLAG',
+    flag_result: 'FLAG',
+    result: 'DONE',
+  };
+  const typeLabel = typeLabels[log.type];
+  if (typeLabel) {
+    content += `<span style="font-weight:700;margin-right:6px;">[${typeLabel}]</span>`;
   }
 
   switch (log.type) {
@@ -443,10 +718,18 @@ function appendLog(container, log) {
       if (log.confidence) content += ` <span style="color:var(--text-muted)">confidence: ${log.confidence}</span>`;
       break;
     case 'code':
-      content += `<pre class="code-block">${escHtml(log.message)}</pre>`;
+      if (compact) {
+        content += `<span style="color:var(--warning)">代码执行...</span>`;
+      } else {
+        content += `<pre class="code-block">${escHtml(log.message)}</pre>`;
+      }
       break;
     case 'code_output':
-      content += `<pre class="code-block" style="border-color:var(--success);">${escHtml(log.message)}</pre>`;
+      if (compact) {
+        content += `<span style="color:var(--text-dim)">代码输出: ${escHtml((log.message || '').slice(0, 80))}</span>`;
+      } else {
+        content += `<pre class="code-block" style="border-color:var(--success);">${escHtml(log.message)}</pre>`;
+      }
       break;
     case 'flag_submit':
     case 'flag_result':
@@ -466,4 +749,5 @@ function appendLog(container, log) {
 
 // ── Init ─────────────────────────────────────────────────────────────
 
+startUptimeTimer();
 refreshDashboard();

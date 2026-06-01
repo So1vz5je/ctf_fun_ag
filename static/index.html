@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CTF Agent</title>
+  <title>GZ_CTF Agent</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -11,232 +11,562 @@
 <div id="app">
   <!-- Sidebar -->
   <aside id="sidebar">
-    <div class="logo">
-      <span class="logo-icon">&#x1F6E1;</span>
-      <span class="logo-text">CTF Agent</span>
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="url(#g1)"/>
+          <path d="M16 6L24 10V22L16 26L8 22V10L16 6Z" stroke="#fff" stroke-width="1.5" fill="none"/>
+          <circle cx="16" cy="16" r="4" fill="#fff" fill-opacity="0.9"/>
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">GZ_CTF Agent</span>
+        <span class="brand-sub">智能体的CTF自动化助手</span>
+      </div>
     </div>
-    <ul class="nav-list">
-      <li class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
-        <span class="nav-icon">&#x1F3E0;</span><span>Dashboard</span>
-      </li>
-      <li class="nav-item" data-page="games" onclick="navigateTo('games')">
-        <span class="nav-icon">&#x1F3AE;</span><span>Games</span>
-      </li>
-      <li class="nav-item" data-page="challenges" onclick="navigateTo('challenges')">
-        <span class="nav-icon">&#x1F9E9;</span><span>Challenges</span>
-      </li>
-      <li class="nav-item" data-page="agent" onclick="navigateTo('agent')">
-        <span class="nav-icon">&#x1F916;</span><span>Agent</span>
-      </li>
-      <li class="nav-item" data-page="settings" onclick="navigateTo('settings')">
-        <span class="nav-icon">&#x2699;</span><span>Settings</span>
-      </li>
-    </ul>
+
+    <nav class="nav-list">
+      <div class="nav-section-label">主菜单</div>
+      <a class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+        <span>仪表盘</span>
+      </a>
+      <a class="nav-item" data-page="games" onclick="navigateTo('games')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+        <span>比赛管理</span>
+      </a>
+      <a class="nav-item" data-page="challenges" onclick="navigateTo('challenges')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <span>题目列表</span>
+      </a>
+
+      <div class="nav-section-label">智能体</div>
+      <a class="nav-item" data-page="agent" onclick="navigateTo('agent')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.27A7 7 0 0 1 7.27 19H6a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="13" r="1" fill="currentColor"/><circle cx="15" cy="13" r="1" fill="currentColor"/><path d="M10 17a2 2 0 0 0 4 0"/></svg></span>
+        <span>智能体运行</span>
+      </a>
+      <a class="nav-item" data-page="logs" onclick="navigateTo('logs')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+        <span>日志中心</span>
+      </a>
+
+      <div class="nav-section-label">系统</div>
+      <a class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        <span>配置中心</span>
+      </a>
+      <a class="nav-item" data-page="about" onclick="navigateTo('about')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+        <span>关于项目</span>
+      </a>
+    </nav>
+
     <div class="sidebar-footer">
       <div class="theme-switcher">
-        <button class="theme-btn" onclick="setTheme('light')" data-theme-btn="light" title="Light">&#x2600;</button>
-        <button class="theme-btn active" onclick="setTheme('dark')" data-theme-btn="dark" title="Dark">&#x1F319;</button>
-        <button class="theme-btn" onclick="setTheme('pink')" data-theme-btn="pink" title="Pink">&#x1F338;</button>
+        <button class="theme-btn" onclick="setTheme('light')" data-theme-btn="light" title="浅色">&#x2600;</button>
+        <button class="theme-btn active" onclick="setTheme('dark')" data-theme-btn="dark" title="深色">&#x1F319;</button>
+        <button class="theme-btn" onclick="setTheme('pink')" data-theme-btn="pink" title="粉色">&#x1F338;</button>
+      </div>
+      <div class="sidebar-project-info">
+        <div class="project-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          <a href="https://github.com/GZTimeWalker/GZCTF" target="_blank">GZCTF 开源项目</a>
+        </div>
+        <span class="project-version">v1.0.0</span>
       </div>
     </div>
   </aside>
 
-  <!-- Main content -->
-  <main id="content">
-
-    <!-- Dashboard -->
-    <section class="page active" id="page-dashboard">
-      <h1>Dashboard</h1>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-value" id="stat-games">-</div><div class="stat-label">Games</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-tasks">-</div><div class="stat-label">Tasks</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-running">-</div><div class="stat-label">Running</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-status">-</div><div class="stat-label">Connection</div></div>
+  <!-- Top Header Bar -->
+  <div id="main-wrapper">
+    <header id="topbar">
+      <div class="topbar-left">
+        <h1 class="topbar-title">GZ_CTF 智能体自动化平台</h1>
+        <span class="topbar-subtitle">自动读取题目 · 自动下载附件 · 自动开启靶机 · 自动解题 · 自动提交Flag</span>
       </div>
-      <div class="card">
-        <h2>Quick Start</h2>
-        <p style="color:var(--text-dim);margin-bottom:16px;">1. Configure your GZCTF URL and credentials in Settings. 2. Browse games and challenges. 3. Start the agent to auto-solve.</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="navigateTo('settings')">&#x2699; Settings</button>
-          <button class="btn btn-secondary" onclick="navigateTo('games')">&#x1F3AE; Games</button>
-          <button class="btn btn-solve" onclick="navigateTo('agent')">&#x1F916; Agent</button>
+      <div class="topbar-right">
+        <div class="status-indicator" id="connection-indicator">
+          <span class="status-dot"></span>
+          <span id="header-status">离线</span>
         </div>
       </div>
-    </section>
+    </header>
 
-    <!-- Games -->
-    <section class="page" id="page-games">
-      <div class="page-header">
-        <h1>Games</h1>
-        <button class="btn btn-primary" onclick="loadGames()">Refresh</button>
-      </div>
-      <div class="cards-grid" id="games-list">
-        <div class="placeholder">Click Refresh to load games</div>
-      </div>
-    </section>
+    <!-- Main content area -->
+    <main id="content">
 
-    <!-- Challenges -->
-    <section class="page" id="page-challenges">
-      <div class="page-header">
-        <h1>Challenges</h1>
-        <div class="header-controls">
-          <select id="challenge-game-select" onchange="loadChallenges(this.value)" style="width:auto;min-width:180px;">
-            <option value="">Select a game...</option>
-          </select>
-          <button class="btn btn-primary" onclick="loadChallenges(document.getElementById('challenge-game-select').value)">Refresh</button>
+      <!-- ═══════ Dashboard ═══════ -->
+      <section class="page active" id="page-dashboard">
+        <!-- Stats row -->
+        <div class="stats-row">
+          <div class="stat-card stat-card-purple">
+            <div class="stat-card-inner">
+              <div class="stat-info">
+                <span class="stat-label">比赛进行中</span>
+                <span class="stat-value" id="stat-games">0</span>
+                <span class="stat-desc">正在进行的比赛</span>
+              </div>
+              <div class="stat-icon-wrap">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 7 7 7 7m10-2h1.5a2.5 2.5 0 0 0 0-5C17 0 17 3 17 3M9 22h6M12 17v5M5 17h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card stat-card-blue">
+            <div class="stat-card-inner">
+              <div class="stat-info">
+                <span class="stat-label">题目总数</span>
+                <span class="stat-value" id="stat-challenges">0</span>
+                <span class="stat-desc">已获取题目数量</span>
+              </div>
+              <div class="stat-icon-wrap">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card stat-card-green">
+            <div class="stat-card-inner">
+              <div class="stat-info">
+                <span class="stat-label">已解出</span>
+                <span class="stat-value" id="stat-solved">0</span>
+                <span class="stat-desc">成功解出题目数量</span>
+              </div>
+              <div class="stat-icon-wrap">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card stat-card-orange">
+            <div class="stat-card-inner">
+              <div class="stat-info">
+                <span class="stat-label">正确率</span>
+                <span class="stat-value" id="stat-accuracy">0%</span>
+                <span class="stat-desc">解出题目 / 总题目</span>
+              </div>
+              <div class="stat-icon-wrap">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card stat-card-cyan">
+            <div class="stat-card-inner">
+              <div class="stat-info">
+                <span class="stat-label">运行时长</span>
+                <span class="stat-value" id="stat-uptime">00:00:00</span>
+                <span class="stat-desc">智能体总运行时间</span>
+              </div>
+              <div class="stat-icon-wrap">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div id="challenges-container">
-        <div class="placeholder">Select a game to view challenges</div>
-      </div>
-    </section>
 
-    <!-- Agent -->
-    <section class="page" id="page-agent">
-      <div class="page-header">
-        <h1>Agent</h1>
-      </div>
+        <!-- Row 2: Current game + Agent status + Quick actions -->
+        <div class="dashboard-grid-3">
+          <!-- Current game -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3>当前比赛</h3>
+            </div>
+            <div class="dash-card-body" id="current-game-info">
+              <div class="empty-state small">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 7 7 7 7m10-2h1.5a2.5 2.5 0 0 0 0-5C17 0 17 3 17 3M5 17h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/></svg>
+                <p>暂无比赛数据</p>
+                <button class="btn btn-sm btn-primary" onclick="refreshDashboardData()">刷新比赛</button>
+              </div>
+            </div>
+          </div>
 
-      <!-- Solve controls -->
-      <div class="card">
-        <h2>Start Solving</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Game</label>
-            <select id="agent-game-select" onchange="onAgentGameChange(this.value)">
-              <option value="">Select a game...</option>
+          <!-- Agent status flow -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3>智能体状态</h3>
+            </div>
+            <div class="dash-card-body">
+              <div class="agent-flow">
+                <div class="agent-robot">
+                  <div class="robot-body">
+                    <div class="robot-head">
+                      <div class="robot-eye left"></div>
+                      <div class="robot-eye right"></div>
+                      <div class="robot-antenna"></div>
+                    </div>
+                    <div class="robot-torso"></div>
+                  </div>
+                </div>
+                <div class="flow-steps">
+                  <div class="flow-step" id="flow-read">
+                    <div class="flow-step-dot"></div>
+                    <span>读取题目</span>
+                  </div>
+                  <div class="flow-connector"></div>
+                  <div class="flow-step" id="flow-download">
+                    <div class="flow-step-dot"></div>
+                    <span>下载附件</span>
+                  </div>
+                  <div class="flow-connector"></div>
+                  <div class="flow-step" id="flow-container">
+                    <div class="flow-step-dot"></div>
+                    <span>开启靶机</span>
+                  </div>
+                  <div class="flow-connector"></div>
+                  <div class="flow-step" id="flow-solve">
+                    <div class="flow-step-dot"></div>
+                    <span>解题分析</span>
+                  </div>
+                  <div class="flow-connector"></div>
+                  <div class="flow-step" id="flow-submit">
+                    <div class="flow-step-dot"></div>
+                    <span>提交Flag</span>
+                  </div>
+                </div>
+              </div>
+              <div class="agent-current-info" id="agent-current-info">
+                <span class="agent-current-label">等待任务</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar" id="agent-progress" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick actions -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3>快捷操作</h3>
+            </div>
+            <div class="dash-card-body">
+              <div class="quick-actions">
+                <button class="qaction qaction-blue" onclick="refreshDashboardData()">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  刷新比赛信息
+                </button>
+                <button class="qaction qaction-green" onclick="navigateTo('challenges')">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  手动获取题目
+                </button>
+                <button class="qaction qaction-purple" onclick="navigateTo('agent')">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  一键运行智能体
+                </button>
+                <button class="qaction qaction-red" onclick="stopAllTasks()">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  停止所有任务
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: Recent tasks + Logs + Category chart -->
+        <div class="dashboard-grid-3">
+          <!-- Recent tasks -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3>最近任务</h3>
+              <a class="link-more" onclick="navigateTo('agent')">查看更多 &rarr;</a>
+            </div>
+            <div class="dash-card-body no-pad">
+              <table class="dash-table" id="recent-tasks-table">
+                <thead>
+                  <tr><th>任务类型</th><th>任务名称</th><th>状态</th><th>开始时间</th></tr>
+                </thead>
+                <tbody id="recent-tasks-body">
+                  <tr><td colspan="4" class="table-empty">暂无任务</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Live logs -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3>智能体日志</h3>
+              <a class="link-more" onclick="navigateTo('logs')">更多日志 &rarr;</a>
+            </div>
+            <div class="dash-card-body no-pad">
+              <div class="dash-log-container" id="dash-log-output">
+                <div class="empty-state small">
+                  <p>暂无日志</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Category chart + Leaderboard stacked -->
+          <div class="dash-card-stack">
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <h3>题目分类统计</h3>
+              </div>
+              <div class="dash-card-body">
+                <div class="category-chart-wrap">
+                  <canvas id="category-chart" width="200" height="200"></canvas>
+                  <div class="chart-center-label" id="chart-center">
+                    <span class="chart-total" id="chart-total-num">0</span>
+                    <span class="chart-total-label">总题目</span>
+                  </div>
+                  <div class="chart-legend" id="chart-legend"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ Games ═══════ -->
+      <section class="page" id="page-games">
+        <div class="page-header">
+          <h2>比赛管理</h2>
+          <button class="btn btn-primary" onclick="loadGames()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            刷新
+          </button>
+        </div>
+        <div class="cards-grid" id="games-list">
+          <div class="empty-state">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <p>点击刷新加载比赛列表</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ Challenges ═══════ -->
+      <section class="page" id="page-challenges">
+        <div class="page-header">
+          <h2>题目列表</h2>
+          <div class="header-controls">
+            <select id="challenge-game-select" onchange="loadChallenges(this.value)">
+              <option value="">选择比赛...</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label>Challenge (optional)</label>
-            <select id="agent-challenge-select">
-              <option value="">All Challenges (Per-Category)</option>
-            </select>
-          </div>
-          <div class="checkbox-group">
-            <label>
-              <input type="checkbox" id="agent-concurrent" checked>
-              Concurrent by Category
-            </label>
+            <button class="btn btn-primary" onclick="loadChallenges(document.getElementById('challenge-game-select').value)">刷新</button>
           </div>
         </div>
-        <div style="display:flex;gap:12px;margin-top:12px;">
-          <button class="btn btn-solve btn-large" onclick="startSolve()">&#x26A1; Start Agent</button>
+        <div id="challenges-container">
+          <div class="empty-state">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <p>选择比赛查看题目</p>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Tasks list -->
-      <div class="card" id="tasks-card" style="display:none;">
-        <h2>Tasks</h2>
-        <div id="tasks-list"></div>
-      </div>
+      <!-- ═══════ Agent ═══════ -->
+      <section class="page" id="page-agent">
+        <div class="page-header">
+          <h2>智能体运行</h2>
+        </div>
 
-      <!-- Log viewer -->
-      <div class="card" id="log-card" style="display:none;">
-        <div class="log-header">
-          <h3>Agent Log</h3>
-          <span id="log-task-id" class="badge badge-info"></span>
-          <span id="log-status" class="connection-status"></span>
+        <div class="dash-card">
+          <div class="dash-card-header"><h3>启动解题</h3></div>
+          <div class="dash-card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>选择比赛</label>
+                <select id="agent-game-select" onchange="onAgentGameChange(this.value)">
+                  <option value="">选择比赛...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>选择题目（可选）</label>
+                <select id="agent-challenge-select">
+                  <option value="">全部题目（按方向并发）</option>
+                </select>
+              </div>
+              <div class="checkbox-group">
+                <label>
+                  <input type="checkbox" id="agent-concurrent" checked>
+                  按方向并发解题
+                </label>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:16px;">
+              <button class="btn btn-solve btn-large" onclick="startSolve()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                启动 Agent
+              </button>
+              <button class="btn btn-danger-outline" onclick="stopAllTasks()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                停止全部
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="log-container" id="log-output"></div>
-      </div>
-    </section>
 
-    <!-- Settings -->
-    <section class="page" id="page-settings">
-      <div class="page-header">
-        <h1>Settings</h1>
-        <button class="btn btn-primary" onclick="saveSettings()">Save All</button>
-      </div>
+        <!-- Tasks list -->
+        <div class="dash-card" id="tasks-card" style="display:none;">
+          <div class="dash-card-header"><h3>任务列表</h3></div>
+          <div class="dash-card-body no-pad" id="tasks-list"></div>
+        </div>
 
-      <div class="card">
-        <h2>GZCTF Platform</h2>
-        <div class="form-row">
-          <div class="form-group" style="flex:2;">
-            <label>Platform URL</label>
-            <input type="url" id="set-gzctf-url" placeholder="https://ctf.example.com">
+        <!-- Log viewer -->
+        <div class="dash-card" id="log-card" style="display:none;">
+          <div class="dash-card-header">
+            <h3>Agent 日志</h3>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span id="log-task-id" class="badge badge-info"></span>
+              <span id="log-status" class="connection-status"></span>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Team ID</label>
-            <input type="number" id="set-gzctf-team-id" placeholder="Optional">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="set-gzctf-username" placeholder="Username">
-          </div>
-          <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="set-gzctf-password" placeholder="Password">
+          <div class="dash-card-body no-pad">
+            <div class="log-container" id="log-output"></div>
           </div>
         </div>
-        <div class="form-group">
-          <label>GZCTF Token (Cookie)</label>
-          <input type="password" id="set-gzctf-token" placeholder="Paste GZCTF_Token cookie value here (alternative to username/password)">
-        </div>
-        <div style="display:flex;gap:12px;margin-top:12px;">
-          <button class="btn btn-secondary" onclick="testConnection()">&#x1F50C; Test Connection</button>
-        </div>
-      </div>
+      </section>
 
-      <div class="card">
-        <h2>LLM Configuration</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Provider</label>
-            <select id="set-llm-provider">
-              <option value="openai">OpenAI</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="ollama">Ollama</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Model</label>
-            <input type="text" id="set-llm-model" placeholder="gpt-4o">
+      <!-- ═══════ Logs (full page) ═══════ -->
+      <section class="page" id="page-logs">
+        <div class="page-header">
+          <h2>日志中心</h2>
+          <button class="btn btn-secondary" onclick="clearDashLogs()">清空日志</button>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-body no-pad">
+            <div class="log-container log-container-tall" id="full-log-output">
+              <div class="empty-state small"><p>暂无日志 - 启动 Agent 后日志将实时显示</p></div>
+            </div>
           </div>
         </div>
-        <div class="form-group">
-          <label>API Key</label>
-          <input type="password" id="set-llm-api-key" placeholder="sk-...">
-        </div>
-        <div class="form-group">
-          <label>Base URL</label>
-          <input type="url" id="set-llm-base-url" placeholder="https://api.openai.com/v1 (leave empty for default)">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Temperature</label>
-            <input type="number" id="set-llm-temperature" step="0.05" min="0" max="2" placeholder="0.1">
-          </div>
-          <div class="form-group">
-            <label>Max Tokens</label>
-            <input type="number" id="set-llm-max-tokens" placeholder="4096">
-          </div>
-        </div>
-      </div>
+      </section>
 
-      <div class="card">
-        <h2>Agent Behavior</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Max Retries</label>
-            <input type="number" id="set-agent-max-retries" placeholder="3">
-          </div>
-          <div class="checkbox-group">
-            <label><input type="checkbox" id="set-agent-auto-submit" checked> Auto Submit</label>
-          </div>
-          <div class="checkbox-group">
-            <label><input type="checkbox" id="set-agent-auto-container" checked> Auto Start Container</label>
-          </div>
-          <div class="checkbox-group">
-            <label><input type="checkbox" id="set-agent-skip-solved" checked> Skip Solved</label>
+      <!-- ═══════ Settings ═══════ -->
+      <section class="page" id="page-settings">
+        <div class="page-header">
+          <h2>配置中心</h2>
+          <button class="btn btn-primary" onclick="saveSettings()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            保存配置
+          </button>
+        </div>
+
+        <div class="dash-card">
+          <div class="dash-card-header"><h3>GZCTF 平台配置</h3></div>
+          <div class="dash-card-body">
+            <div class="form-row">
+              <div class="form-group" style="flex:2;">
+                <label>平台 URL</label>
+                <input type="url" id="set-gzctf-url" placeholder="https://ctf.example.com">
+              </div>
+              <div class="form-group">
+                <label>队伍 ID</label>
+                <input type="number" id="set-gzctf-team-id" placeholder="可选">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="set-gzctf-username" placeholder="登录用户名">
+              </div>
+              <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="set-gzctf-password" placeholder="登录密码">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>GZCTF Token (Cookie 认证)</label>
+              <input type="password" id="set-gzctf-token" placeholder="粘贴 GZCTF_Token cookie 值（可替代用户名/密码）">
+            </div>
+            <div style="margin-top:12px;">
+              <button class="btn btn-secondary" onclick="testConnection()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                测试连接
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
 
-  </main>
+        <div class="dash-card">
+          <div class="dash-card-header"><h3>LLM 模型配置</h3></div>
+          <div class="dash-card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>提供商</label>
+                <select id="set-llm-provider">
+                  <option value="openai">OpenAI</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="ollama">Ollama (本地)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>模型名称</label>
+                <input type="text" id="set-llm-model" placeholder="gpt-4o">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>API Key</label>
+              <input type="password" id="set-llm-api-key" placeholder="sk-...">
+            </div>
+            <div class="form-group">
+              <label>Base URL</label>
+              <input type="url" id="set-llm-base-url" placeholder="https://api.openai.com/v1（留空使用默认）">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Temperature</label>
+                <input type="number" id="set-llm-temperature" step="0.05" min="0" max="2" placeholder="0.1">
+              </div>
+              <div class="form-group">
+                <label>Max Tokens</label>
+                <input type="number" id="set-llm-max-tokens" placeholder="4096">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <div class="dash-card-header"><h3>Agent 行为配置</h3></div>
+          <div class="dash-card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>最大重试次数</label>
+                <input type="number" id="set-agent-max-retries" placeholder="3">
+              </div>
+              <div class="checkbox-group">
+                <label><input type="checkbox" id="set-agent-auto-submit" checked> 自动提交</label>
+              </div>
+              <div class="checkbox-group">
+                <label><input type="checkbox" id="set-agent-auto-container" checked> 自动开靶机</label>
+              </div>
+              <div class="checkbox-group">
+                <label><input type="checkbox" id="set-agent-skip-solved" checked> 跳过已解</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ About ═══════ -->
+      <section class="page" id="page-about">
+        <div class="page-header">
+          <h2>关于项目</h2>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-body">
+            <div class="about-content">
+              <div class="about-logo">
+                <svg width="80" height="80" viewBox="0 0 32 32" fill="none">
+                  <rect width="32" height="32" rx="8" fill="url(#g2)"/>
+                  <path d="M16 6L24 10V22L16 26L8 22V10L16 6Z" stroke="#fff" stroke-width="1.5" fill="none"/>
+                  <circle cx="16" cy="16" r="4" fill="#fff" fill-opacity="0.9"/>
+                  <defs><linearGradient id="g2" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+                </svg>
+              </div>
+              <h3>GZ_CTF Agent v1.0.0</h3>
+              <p class="about-desc">基于 GZCTF 开源项目构建的智能体自动化解题平台。通过 LLM 驱动的 Agent 自动分析题目、下载附件、开启靶机、编写解题代码，并自动提交 Flag。</p>
+              <div class="about-links">
+                <a href="https://github.com/GZTimeWalker/GZCTF" target="_blank" class="about-link">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                  GZCTF 开源项目
+                </a>
+              </div>
+              <p class="about-footer-text">仅供学习交流使用</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
 </div>
 
 <script src="/static/app.js"></script>
