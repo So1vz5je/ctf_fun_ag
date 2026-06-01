@@ -821,7 +821,12 @@ a:hover { color: var(--accent-hover); }
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.challenge-category-header:hover {
+  background: var(--bg-hover);
 }
 .challenge-category-header h3 {
   display: flex;
@@ -830,6 +835,29 @@ a:hover { color: var(--accent-hover); }
   font-size: 14px;
   font-weight: 700;
   margin: 0;
+}
+.category-chevron {
+  transition: transform 0.2s;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.challenge-category-card.collapsed .category-chevron {
+  transform: rotate(-90deg);
+}
+.challenge-category-card.collapsed .challenge-category-body {
+  display: none;
+}
+.challenge-category-body {
+  border-top: 1px solid var(--border);
+}
+.category-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.category-header-actions .btn {
+  font-size: 12px;
+  padding: 4px 10px;
 }
 
 /* ── Badges ───────────────────────────────────────────────────────── */

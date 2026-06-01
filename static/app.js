@@ -33,7 +33,6 @@ function navigateTo(page) {
   if (page === 'dashboard') refreshDashboard();
   if (page === 'settings') loadSettings();
   if (page === 'games') loadGames();
-  if (page === 'agent') { refreshSelects(); loadTasksList(); }
   if (page === 'challenges') refreshChallengeGameSelect();
   if (page === 'logs') refreshFullLogs();
 }
@@ -405,12 +404,17 @@ function populateGameSelect(sel, games) {
   if (current) sel.value = current;
 }
 
+let currentChallengeGameId = null;
+
 async function loadChallenges(gameId) {
   const container = document.getElementById('challenges-container');
   if (!gameId) {
     container.innerHTML = '<div class="empty-state"><p>选择比赛查看题目</p></div>';
+    document.getElementById('btn-solve-all').style.display = 'none';
+    document.getElementById('btn-stop-all').style.display = 'none';
     return;
   }
+  currentChallengeGameId = parseInt(gameId);
   container.innerHTML = '<div class="empty-state small"><p>加载中...</p></div>';
   try {
     const categories = await api(`/api/games/${gameId}/challenges`);
@@ -418,103 +422,69 @@ async function loadChallenges(gameId) {
     for (const [cat, challenges] of Object.entries(categories)) {
       const solved = challenges.filter(c => c.isSolved).length;
       html += `
-        <div class="challenge-category-card">
-          <div class="challenge-category-header">
+        <div class="challenge-category-card" id="cat-${escHtml(cat)}">
+          <div class="challenge-category-header" onclick="toggleCategory(this)">
             <h3>
+              <svg class="category-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
               <span class="badge badge-category">${escHtml(cat)}</span>
               ${challenges.length} 题 (${solved} 已解)
             </h3>
+            <div class="category-header-actions">
+              <button class="btn btn-small btn-solve" onclick="event.stopPropagation();solveCategory(${gameId},'${escHtml(cat)}')">解题该方向</button>
+            </div>
           </div>
-          <div style="overflow-x:auto;">
-            <table class="dash-table">
-              <thead><tr><th>ID</th><th>标题</th><th>分值</th><th>状态</th><th>操作</th></tr></thead>
-              <tbody>
-                ${challenges.map(c => `
-                  <tr>
-                    <td>${c.id}</td>
-                    <td style="font-weight:500;">${escHtml(c.title)}</td>
-                    <td>${c.score || c.originalScore || '-'}</td>
-                    <td>${c.isSolved
-                      ? '<span class="badge badge-solved">已解</span>'
-                      : '<span class="badge badge-unsolved">未解</span>'
-                    }</td>
-                    <td><button class="btn btn-small btn-solve" onclick="quickSolve(${gameId},${c.id})">解题</button></td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+          <div class="challenge-category-body">
+            <div style="overflow-x:auto;">
+              <table class="dash-table">
+                <thead><tr><th>ID</th><th>标题</th><th>分值</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  ${challenges.map(c => `
+                    <tr>
+                      <td>${c.id}</td>
+                      <td style="font-weight:500;">${escHtml(c.title)}</td>
+                      <td>${c.score || c.originalScore || '-'}</td>
+                      <td>${c.isSolved
+                        ? '<span class="badge badge-solved">已解</span>'
+                        : '<span class="badge badge-unsolved">未解</span>'
+                      }</td>
+                      <td><button class="btn btn-small btn-solve" onclick="solveSingle(${gameId},${c.id})">Solve</button></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       `;
     }
     container.innerHTML = html || '<div class="empty-state"><p>暂无题目</p></div>';
+    document.getElementById('btn-solve-all').style.display = '';
+    document.getElementById('btn-stop-all').style.display = '';
   } catch {
     container.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
   }
 }
 
-function quickSolve(gameId, challengeId) {
-  navigateTo('agent');
-  const gs = document.getElementById('agent-game-select');
-  gs.value = gameId;
-  onAgentGameChange(gameId).then(() => {
-    document.getElementById('agent-challenge-select').value = challengeId;
-  });
+function toggleCategory(headerEl) {
+  headerEl.closest('.challenge-category-card').classList.toggle('collapsed');
 }
 
-// ── Agent ────────────────────────────────────────────────────────────
-
-async function refreshSelects() {
-  const sel = document.getElementById('agent-game-select');
-  if (sel.options.length <= 1) {
-    try {
-      const games = gamesCache.length ? gamesCache : await api('/api/games');
-      gamesCache = games;
-      populateGameSelect(sel, games);
-    } catch { /* skip */ }
-  }
+function solveSingle(gameId, challengeId) {
+  startSolveTask(gameId, challengeId, false);
 }
 
-async function onAgentGameChange(gameId) {
-  const sel = document.getElementById('agent-challenge-select');
-  sel.innerHTML = '<option value="">全部题目（按方向并发）</option>';
-  if (!gameId) return;
-  try {
-    const categories = await api(`/api/games/${gameId}/challenges`);
-    for (const [cat, challenges] of Object.entries(categories)) {
-      challenges.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = `[${cat}] ${c.title} (${c.score || '-'} pts)`;
-        sel.appendChild(opt);
-      });
-    }
-  } catch { /* skip */ }
+function solveCategory(gameId, category) {
+  // category solve = all challenges, concurrent, but we pass game_id only
+  // Backend handles per-category agent when challenge_id is null
+  startSolveTask(gameId, null, true);
 }
 
-let currentWs = null;
-let currentTaskId = null;
-
-async function startSolve() {
-  const gameId = parseInt(document.getElementById('agent-game-select').value);
-  if (!gameId) { showToast('请选择比赛', 'warning'); return; }
-  const challengeId = parseInt(document.getElementById('agent-challenge-select').value) || null;
-  const concurrent = document.getElementById('agent-concurrent').checked;
-
-  try {
-    const result = await api('/api/solve', {
-      method: 'POST',
-      body: JSON.stringify({ game_id: gameId, challenge_id: challengeId, concurrent }),
-    });
-    currentTaskId = result.task_id;
-    showToast(`任务 ${result.task_id} 已启动`, 'success');
-    showLogViewer(result.task_id);
-    connectLogStream(result.task_id);
-    loadTasksList();
-    // Update flow step
-    setFlowStep('read');
-  } catch { /* toast already shown */ }
+function solveAllCategories() {
+  if (!currentChallengeGameId) { showToast('请先选择比赛', 'warning'); return; }
+  startSolveTask(currentChallengeGameId, null, true);
 }
+
+
 
 function stopAllTasks() {
   showToast('停止功能开发中...', 'warning');
@@ -539,57 +509,15 @@ function setFlowStep(step) {
   if (bar) bar.style.width = pct + '%';
 }
 
-function showLogViewer(taskId) {
-  document.getElementById('log-card').style.display = 'block';
-  document.getElementById('log-output').innerHTML = '';
-  document.getElementById('log-task-id').textContent = taskId;
-  document.getElementById('log-task-id').className = 'badge badge-running';
-  document.getElementById('log-status').textContent = '连接中...';
-}
-
-async function loadTasksList() {
-  const card = document.getElementById('tasks-card');
-  const container = document.getElementById('tasks-list');
-  try {
-    const tasks = await api('/api/tasks');
-    const ids = Object.keys(tasks);
-    if (!ids.length) { card.style.display = 'none'; return; }
-    card.style.display = 'block';
-    container.innerHTML = ids.reverse().map(tid => {
-      const t = tasks[tid];
-      const statusClass = t.status === 'running' ? 'badge-running'
-        : t.status === 'completed' ? 'badge-completed' : 'badge-error';
-      return `
-        <div class="task-item" onclick="viewTaskLogs('${tid}')">
-          <div class="task-info">
-            <span class="badge ${statusClass}">${t.status}</span>
-            <span style="font-size:13px;">任务 ${tid} — Game #${t.game_id}${t.challenge_id ? ' Ch#' + t.challenge_id : ' (全部)'}</span>
-          </div>
-          <span style="color:var(--text-muted);font-size:12px;">${t.log_count} 条日志</span>
-        </div>
-      `;
-    }).join('');
-  } catch { /* skip */ }
-}
-
-async function viewTaskLogs(taskId) {
-  showLogViewer(taskId);
-  if (currentWs) { currentWs.close(); currentWs = null; }
-
-  try {
-    const data = await api(`/api/tasks/${taskId}/logs`);
-    const logOutput = document.getElementById('log-output');
-    logOutput.innerHTML = '';
-    (data.logs || []).forEach(log => appendLog(logOutput, log));
-
-    if (data.status === 'running') {
-      connectLogStream(taskId);
-    } else {
-      document.getElementById('log-task-id').className =
-        `badge ${data.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
-      document.getElementById('log-status').textContent = data.status;
-    }
-  } catch { /* toast */ }
+function showChallengeLogViewer(taskId) {
+  const card = document.getElementById('challenge-log-card');
+  if (!card) return;
+  card.style.display = 'block';
+  document.getElementById('challenge-log-output').innerHTML = '';
+  document.getElementById('challenge-log-task-id').textContent = taskId;
+  document.getElementById('challenge-log-task-id').className = 'badge badge-running';
+  document.getElementById('challenge-log-status').textContent = '连接中...';
+  card.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ── WebSocket Log Streaming ──────────────────────────────────────────
@@ -601,14 +529,16 @@ function connectLogStream(taskId) {
   currentWs = ws;
 
   ws.onopen = () => {
-    document.getElementById('log-status').textContent = '实时';
-    document.getElementById('log-status').style.color = 'var(--success)';
+    const s = document.getElementById('challenge-log-status');
+    if (s) { s.textContent = '实时'; s.style.color = 'var(--success)'; }
   };
 
   ws.onmessage = (event) => {
     const log = JSON.parse(event.data);
-    const logOutput = document.getElementById('log-output');
-    appendLog(logOutput, log);
+
+    // Write to challenge page log viewer
+    const challengeLog = document.getElementById('challenge-log-output');
+    if (challengeLog) appendLog(challengeLog, log);
 
     // Also push to dashboard log
     const dashLog = document.getElementById('dash-log-output');
@@ -616,6 +546,14 @@ function connectLogStream(taskId) {
       const emptyState = dashLog.querySelector('.empty-state');
       if (emptyState) emptyState.remove();
       appendLog(dashLog, log, true);
+    }
+
+    // Also push to full logs page
+    const fullLog = document.getElementById('full-log-output');
+    if (fullLog) {
+      const emptyState = fullLog.querySelector('.empty-state');
+      if (emptyState) emptyState.remove();
+      appendLog(fullLog, log);
     }
 
     // Update flow steps based on log type
@@ -626,16 +564,16 @@ function connectLogStream(taskId) {
     if (log.type === 'flag_submit') setFlowStep('submit');
 
     if (log.type === 'done') {
-      document.getElementById('log-task-id').className =
-        `badge ${log.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
-      document.getElementById('log-status').textContent = log.status || '完成';
-      loadTasksList();
+      const tid = document.getElementById('challenge-log-task-id');
+      if (tid) tid.className = `badge ${log.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
+      const ls = document.getElementById('challenge-log-status');
+      if (ls) ls.textContent = log.status || '完成';
     }
   };
 
   ws.onerror = () => {
-    document.getElementById('log-status').textContent = '已断开';
-    document.getElementById('log-status').style.color = 'var(--danger)';
+    const s = document.getElementById('challenge-log-status');
+    if (s) { s.textContent = '已断开'; s.style.color = 'var(--danger)'; }
     pollLogs(taskId);
   };
 
@@ -649,18 +587,20 @@ function pollLogs(taskId) {
   const interval = setInterval(async () => {
     try {
       const data = await api(`/api/tasks/${taskId}/logs`);
-      const logOutput = document.getElementById('log-output');
+      const logOutput = document.getElementById('challenge-log-output');
       const logs = data.logs || [];
-      for (let i = seen; i < logs.length; i++) {
-        appendLog(logOutput, logs[i]);
+      if (logOutput) {
+        for (let i = seen; i < logs.length; i++) {
+          appendLog(logOutput, logs[i]);
+        }
       }
       seen = logs.length;
       if (data.status !== 'running') {
         clearInterval(interval);
-        document.getElementById('log-task-id').className =
-          `badge ${data.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
-        document.getElementById('log-status').textContent = data.status;
-        loadTasksList();
+        const tid = document.getElementById('challenge-log-task-id');
+        if (tid) tid.className = `badge ${data.status === 'completed' ? 'badge-completed' : 'badge-error'}`;
+        const ls = document.getElementById('challenge-log-status');
+        if (ls) ls.textContent = data.status;
       }
     } catch { clearInterval(interval); }
   }, 1500);

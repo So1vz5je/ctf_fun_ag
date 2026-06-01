@@ -42,10 +42,6 @@
       </a>
 
       <div class="nav-section-label">智能体</div>
-      <a class="nav-item" data-page="agent" onclick="navigateTo('agent')">
-        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.27A7 7 0 0 1 7.27 19H6a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="13" r="1" fill="currentColor"/><circle cx="15" cy="13" r="1" fill="currentColor"/><path d="M10 17a2 2 0 0 0 4 0"/></svg></span>
-        <span>智能体运行</span>
-      </a>
       <a class="nav-item" data-page="logs" onclick="navigateTo('logs')">
         <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
         <span>日志中心</span>
@@ -246,9 +242,9 @@
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                   手动获取题目
                 </button>
-                <button class="qaction qaction-purple" onclick="navigateTo('agent')">
+                <button class="qaction qaction-purple" onclick="navigateTo('challenges')">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  一键运行智能体
+                  进入解题
                 </button>
                 <button class="qaction qaction-red" onclick="stopAllTasks()">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
@@ -265,7 +261,7 @@
           <div class="dash-card">
             <div class="dash-card-header">
               <h3>最近任务</h3>
-              <a class="link-more" onclick="navigateTo('agent')">查看更多 &rarr;</a>
+              <a class="link-more" onclick="navigateTo('logs')">查看更多 &rarr;</a>
             </div>
             <div class="dash-card-body no-pad">
               <table class="dash-table" id="recent-tasks-table">
@@ -341,6 +337,14 @@
               <option value="">选择比赛...</option>
             </select>
             <button class="btn btn-primary" onclick="loadChallenges(document.getElementById('challenge-game-select').value)">刷新</button>
+            <button class="btn btn-solve" id="btn-solve-all" style="display:none;" onclick="solveAllCategories()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              一键全部做题
+            </button>
+            <button class="btn btn-danger-outline" id="btn-stop-all" style="display:none;" onclick="stopAllTasks()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+              停止
+            </button>
           </div>
         </div>
         <div id="challenges-container">
@@ -349,70 +353,22 @@
             <p>选择比赛查看题目</p>
           </div>
         </div>
-      </section>
-
-      <!-- ═══════ Agent ═══════ -->
-      <section class="page" id="page-agent">
-        <div class="page-header">
-          <h2>智能体运行</h2>
-        </div>
-
-        <div class="dash-card">
-          <div class="dash-card-header"><h3>启动解题</h3></div>
-          <div class="dash-card-body">
-            <div class="form-row">
-              <div class="form-group">
-                <label>选择比赛</label>
-                <select id="agent-game-select" onchange="onAgentGameChange(this.value)">
-                  <option value="">选择比赛...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>选择题目（可选）</label>
-                <select id="agent-challenge-select">
-                  <option value="">全部题目（按方向并发）</option>
-                </select>
-              </div>
-              <div class="checkbox-group">
-                <label>
-                  <input type="checkbox" id="agent-concurrent" checked>
-                  按方向并发解题
-                </label>
-              </div>
-            </div>
-            <div style="display:flex;gap:12px;margin-top:16px;">
-              <button class="btn btn-solve btn-large" onclick="startSolve()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                启动 Agent
-              </button>
-              <button class="btn btn-danger-outline" onclick="stopAllTasks()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                停止全部
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tasks list -->
-        <div class="dash-card" id="tasks-card" style="display:none;">
-          <div class="dash-card-header"><h3>任务列表</h3></div>
-          <div class="dash-card-body no-pad" id="tasks-list"></div>
-        </div>
-
-        <!-- Log viewer -->
-        <div class="dash-card" id="log-card" style="display:none;">
+        <!-- Inline log viewer (appears when agent is running) -->
+        <div class="dash-card" id="challenge-log-card" style="display:none;margin-top:16px;">
           <div class="dash-card-header">
             <h3>Agent 日志</h3>
             <div style="display:flex;align-items:center;gap:10px;">
-              <span id="log-task-id" class="badge badge-info"></span>
-              <span id="log-status" class="connection-status"></span>
+              <span id="challenge-log-task-id" class="badge badge-info"></span>
+              <span id="challenge-log-status" class="connection-status"></span>
             </div>
           </div>
           <div class="dash-card-body no-pad">
-            <div class="log-container" id="log-output"></div>
+            <div class="log-container" id="challenge-log-output"></div>
           </div>
         </div>
       </section>
+
+
 
       <!-- ═══════ Logs (full page) ═══════ -->
       <section class="page" id="page-logs">
