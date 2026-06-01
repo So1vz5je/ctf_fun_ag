@@ -25,7 +25,12 @@ class GZCTFClient:
     """Async HTTP client for the GZCTF REST API."""
 
     def __init__(self, config: GZCTFConfig) -> None:
-        self.base_url = config.url.rstrip("/")
+        url = (config.url or "").strip()
+        if not url:
+            raise ValueError("GZCTF URL is required -- set it in Settings first")
+        if not url.startswith(("http://", "https://")):
+            raise ValueError(f"GZCTF URL must start with http:// or https://, got: {url}")
+        self.base_url = url.rstrip("/")
         self._username = config.username
         self._password = config.password
         self._token = config.token
@@ -62,7 +67,7 @@ class GZCTFClient:
     async def login(self) -> UserProfile:
         """Authenticate via username/password or pre-set cookie token."""
         if self._logged_in and self._token:
-            console.print("[green]✓ 使用 Token 登录[/green]")
+            console.print("[green][OK] Token login[/green]")
             return await self.get_profile()
         resp = await self._client.post(
             "/api/account/login",
@@ -70,7 +75,7 @@ class GZCTFClient:
         )
         resp.raise_for_status()
         self._logged_in = True
-        console.print(f"[green]✓ 登录成功: {self._username}[/green]")
+        console.print(f"[green][OK] Login: {self._username}[/green]")
         return await self.get_profile()
 
     async def get_profile(self) -> UserProfile:
@@ -112,15 +117,19 @@ class GZCTFClient:
             body["divisionId"] = division_id
         resp = await self._client.post(f"/api/game/{game_id}", json=body)
         resp.raise_for_status()
-        console.print(f"[green]✓ 已加入比赛 {game_id}[/green]")
+        console.print(f"[green][OK] Joined game {game_id}[/green]")
 
     # ------------------------------------------------------------------
     # Challenges
     # ------------------------------------------------------------------
 
     async def get_challenges(self, game_id: int) -> dict[str, list[ChallengeInfo]]:
-        """Get all challenges grouped by category."""
-        resp = await self._client.get(f"/api/game/{game_id}/challenges")
+        """Get all challenges grouped by category.
+
+        Uses /api/game/{id}/details which returns challenge data
+        on current GZCTF versions.
+        """
+        resp = await self._client.get(f"/api/game/{game_id}/details")
         resp.raise_for_status()
         data = resp.json()
         # Response can be: {category: [challenges]} directly,
@@ -165,7 +174,7 @@ class GZCTFClient:
                 async for chunk in resp.aiter_bytes(8192):
                     f.write(chunk)
 
-        console.print(f"[cyan]↓ 附件已下载: {dest}[/cyan]")
+        console.print(f"[cyan][DL] Attachment: {dest}[/cyan]")
         return dest
 
     # ------------------------------------------------------------------
@@ -177,7 +186,7 @@ class GZCTFClient:
         resp = await self._client.post(f"/api/game/{game_id}/challenges/{challenge_id}/container")
         resp.raise_for_status()
         info = ContainerInfo.model_validate(resp.json())
-        console.print(f"[green]✓ 靶机已启动: {info.entry}[/green]")
+        console.print(f"[green][OK] Container started: {info.entry}[/green]")
         return info
 
     async def get_container(self, game_id: int, challenge_id: int) -> ContainerInfo | None:
@@ -190,7 +199,7 @@ class GZCTFClient:
     async def destroy_container(self, game_id: int, challenge_id: int) -> None:
         resp = await self._client.delete(f"/api/game/{game_id}/challenges/{challenge_id}/container")
         resp.raise_for_status()
-        console.print("[yellow]✗ 靶机已销毁[/yellow]")
+        console.print("[yellow][DEL] Container destroyed[/yellow]")
 
     # ------------------------------------------------------------------
     # Flag submission

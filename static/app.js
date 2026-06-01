@@ -47,8 +47,15 @@ async function api(url, opts = {}) {
       ...opts,
     });
     if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`${resp.status}: ${text.slice(0, 200)}`);
+      let errMsg = `${resp.status}`;
+      try {
+        const data = await resp.json();
+        errMsg = data.error || data.detail || data.message || JSON.stringify(data).slice(0, 200);
+      } catch {
+        const text = await resp.text();
+        errMsg = text.slice(0, 200) || errMsg;
+      }
+      throw new Error(errMsg);
     }
     return await resp.json();
   } catch (e) {
@@ -321,12 +328,18 @@ async function saveSettings() {
 }
 
 async function testConnection() {
-  showToast('正在测试连接...', 'info');
+  showToast('保存配置并测试连接...', 'info');
+  try {
+    await saveSettings();
+  } catch {
+    showToast('保存配置失败，无法测试连接', 'error');
+    return;
+  }
   try {
     const profile = await api('/api/login', { method: 'POST' });
     const name = profile.userName || profile.bio || 'OK';
     showToast('连接成功: ' + name, 'success');
-  } catch { /* toast already shown */ }
+  } catch { /* toast already shown by api() */ }
 }
 
 // ── Games ────────────────────────────────────────────────────────────

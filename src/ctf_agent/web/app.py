@@ -7,9 +7,10 @@ import json
 import uuid
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -118,40 +119,70 @@ async def update_settings(req: SettingsUpdate):
 
 @app.post("/api/login")
 async def login():
-    client = await state.get_client()
-    profile = await client.login()
-    return profile.model_dump(by_alias=True)
+    try:
+        client = await state.get_client()
+        profile = await client.login()
+        return profile.model_dump(by_alias=True)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except httpx.HTTPStatusError as e:
+        detail = _extract_gzctf_error(e)
+        return JSONResponse(status_code=e.response.status_code, content={"error": detail})
 
 
 @app.get("/api/games")
 async def list_games():
-    client = await state.get_client()
-    games = await client.list_games()
-    return [g.model_dump(by_alias=True) for g in games]
+    try:
+        client = await state.get_client()
+        games = await client.list_games()
+        return [g.model_dump(by_alias=True) for g in games]
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except httpx.HTTPStatusError as e:
+        detail = _extract_gzctf_error(e)
+        return JSONResponse(status_code=e.response.status_code, content={"error": detail})
 
 
 @app.get("/api/games/{game_id}")
 async def get_game(game_id: int):
-    client = await state.get_client()
-    detail = await client.get_game(game_id)
-    return detail.model_dump(by_alias=True)
+    try:
+        client = await state.get_client()
+        detail = await client.get_game(game_id)
+        return detail.model_dump(by_alias=True)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except httpx.HTTPStatusError as e:
+        detail = _extract_gzctf_error(e)
+        return JSONResponse(status_code=e.response.status_code, content={"error": detail})
 
 
 @app.get("/api/games/{game_id}/challenges")
 async def get_challenges(game_id: int):
-    client = await state.get_client()
-    categories = await client.get_challenges(game_id)
-    result = {}
-    for cat, items in categories.items():
-        result[cat] = [c.model_dump(by_alias=True) for c in items]
-    return result
+    try:
+        client = await state.get_client()
+        categories = await client.get_challenges(game_id)
+        result = {}
+        for cat, items in categories.items():
+            result[cat] = [c.model_dump(by_alias=True) for c in items]
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except httpx.HTTPStatusError as e:
+        detail = _extract_gzctf_error(e)
+        return JSONResponse(status_code=e.response.status_code, content={"error": detail})
 
 
 @app.get("/api/games/{game_id}/challenges/{challenge_id}")
 async def get_challenge_detail(game_id: int, challenge_id: int):
-    client = await state.get_client()
-    detail = await client.get_challenge_detail(game_id, challenge_id)
-    return detail.model_dump(by_alias=True)
+    try:
+        client = await state.get_client()
+        detail = await client.get_challenge_detail(game_id, challenge_id)
+        return detail.model_dump(by_alias=True)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except httpx.HTTPStatusError as e:
+        detail = _extract_gzctf_error(e)
+        return JSONResponse(status_code=e.response.status_code, content={"error": detail})
 
 
 # ── Agent solve ───────────────────────────────────────────────────────
@@ -441,6 +472,18 @@ async def index():
     if index_path.exists():
         return FileResponse(str(index_path))
     return {"message": "CTF Agent API is running."}
+
+
+def _extract_gzctf_error(exc: httpx.HTTPStatusError) -> str:
+    """Extract a human-readable error from GZCTF HTTP error responses."""
+    try:
+        data = exc.response.json()
+        if isinstance(data, dict):
+            return str(data.get("title") or data.get("detail") or data.get("message") or data)
+        return str(data)
+    except Exception:
+        text = exc.response.text[:200] if exc.response.text else ""
+        return text or f"HTTP {exc.response.status_code}"
 
 
 def _mask_key(key: str) -> str:

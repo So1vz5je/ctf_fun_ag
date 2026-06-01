@@ -97,9 +97,16 @@ class ChallengeInfo(BaseModel):
 
     id: int
     title: str = ""
-    tag: str = ""
+    tag: str = Field(
+        validation_alias=AliasChoices("tag", "category"),
+        default="",
+    )
     score: int = 0
     is_solved: bool = Field(alias="isSolved", default=False)
+    solved_count: int = Field(
+        validation_alias=AliasChoices("solved", "solvedCount", "solved_count"),
+        default=0,
+    )
     type: str = ""
 
     model_config = {"populate_by_name": True, "extra": "allow"}
@@ -120,7 +127,10 @@ class ChallengeDetail(BaseModel):
     id: int
     title: str = ""
     content: str = ""
-    tag: str = ""
+    tag: str = Field(
+        validation_alias=AliasChoices("tag", "category"),
+        default="",
+    )
     score: int = 0
     type: str = ""
     hints: list[str] = Field(default_factory=list)
