@@ -1,0 +1,32 @@
+# CTF Agent 配置文件
+# 复制为 config.yaml 并填入你的实际配置
+# 所有配置项均可通过环境变量覆盖
+
+gzctf:
+  url: "https://your-gzctf-instance.com"   # GZCTF 平台地址 (env: GZCTF_URL)
+  username: "your_username"                  # 用户名 (env: GZCTF_USERNAME)
+  password: "your_password"                  # 密码 (env: GZCTF_PASSWORD)
+  team_id: 1                                 # 队伍 ID (env: GZCTF_TEAM_ID)
+
+llm:
+  provider: "openai"                         # LLM 提供商
+  api_key: "sk-..."                          # API Key (env: LLM_API_KEY)
+  base_url: null                             # 自定义 API 地址 (env: LLM_BASE_URL) - 支持 OpenAI 兼容接口
+  model: "gpt-4o"                            # 模型名称 (env: LLM_MODEL)
+  temperature: 0.1                           # 温度参数
+  max_tokens: 4096                           # 最大 token 数
+
+agent:
+  max_retries: 3                             # 每道题最大尝试轮次
+  auto_submit: true                          # 是否自动提交 flag
+  auto_start_container: true                 # 是否自动启动靶机
+  download_dir: "downloads"                  # 附件下载目录
+  skip_solved: true                          # 跳过已解决的题目
+  max_concurrent: 1                          # 最大并发解题数
+  categories:                                # 尝试解题的分类
+    - Misc
+    - Crypto
+    - Web
+    - Forensics
+    - PPC
+    - OSINT
