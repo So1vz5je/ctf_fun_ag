@@ -120,13 +120,18 @@ class GZCTFClient:
 
     async def get_challenges(self, game_id: int) -> dict[str, list[ChallengeInfo]]:
         """Get all challenges grouped by category."""
-        resp = await self._client.get(f"/api/game/{game_id}/details")
+        resp = await self._client.get(f"/api/game/{game_id}/challenges")
         resp.raise_for_status()
         data = resp.json()
-        challenges_raw = data.get("challenges", {})
+        # Response can be: {category: [challenges]} directly,
+        # or wrapped as {"challenges": {category: [...]}} depending on GZCTF version.
+        if isinstance(data, dict) and "challenges" in data:
+            data = data["challenges"]
         result: dict[str, list[ChallengeInfo]] = {}
-        for category, items in challenges_raw.items():
-            result[category] = [ChallengeInfo.model_validate(c) for c in items]
+        if isinstance(data, dict):
+            for category, items in data.items():
+                if isinstance(items, list):
+                    result[category] = [ChallengeInfo.model_validate(c) for c in items]
         return result
 
     async def get_challenge_detail(self, game_id: int, challenge_id: int) -> ChallengeDetail:
@@ -195,12 +200,16 @@ class GZCTFClient:
         """Submit a flag. Returns submission status string."""
         resp = await self._client.post(
             f"/api/game/{game_id}/challenges/{challenge_id}",
-            json={"answer": flag},
+            json={"flag": flag},
         )
         resp.raise_for_status()
         data = resp.json()
-        status = str(data) if isinstance(data, int) else data.get("status", data)
-        return str(status)
+        # GZCTF returns AnswerResult enum: Accepted, WrongAnswer, FlagSubmitted, etc.
+        if isinstance(data, int):
+            return str(data)
+        if isinstance(data, dict):
+            return str(data.get("data", data.get("status", data)))
+        return str(data)
 
     # ------------------------------------------------------------------
     # Convenience

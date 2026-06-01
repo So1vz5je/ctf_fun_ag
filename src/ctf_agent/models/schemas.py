@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class ChallengeType(StrEnum):
@@ -46,12 +46,21 @@ class GameInfo(BaseModel):
     title: str = ""
     summary: str = ""
     poster: str | None = None
-    team_count: int = Field(alias="teamCount", default=0)
-    start_time: datetime | None = Field(alias="startTimeUtc", default=None)
-    end_time: datetime | None = Field(alias="endTimeUtc", default=None)
+    team_count: int = Field(
+        validation_alias=AliasChoices("teamCount", "team_count"),
+        default=0,
+    )
+    start_time: datetime | None = Field(
+        validation_alias=AliasChoices("start", "startTimeUtc", "start_time"),
+        default=None,
+    )
+    end_time: datetime | None = Field(
+        validation_alias=AliasChoices("end", "endTimeUtc", "end_time"),
+        default=None,
+    )
     status: str = ""
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "allow"}
 
 
 class GameDetail(BaseModel):
@@ -61,12 +70,18 @@ class GameDetail(BaseModel):
     accept_without_review: bool = Field(alias="acceptWithoutReview", default=False)
     team_member_count_limit: int = Field(alias="teamMemberCountLimit", default=0)
     container_count_limit: int = Field(alias="containerCountLimit", default=3)
-    start_time: datetime | None = Field(alias="startTimeUtc", default=None)
-    end_time: datetime | None = Field(alias="endTimeUtc", default=None)
+    start_time: datetime | None = Field(
+        validation_alias=AliasChoices("start", "startTimeUtc", "start_time"),
+        default=None,
+    )
+    end_time: datetime | None = Field(
+        validation_alias=AliasChoices("end", "endTimeUtc", "end_time"),
+        default=None,
+    )
     participated: bool = False
     status: str = ""
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "allow"}
 
 
 class Attachment(BaseModel):
@@ -74,7 +89,7 @@ class Attachment(BaseModel):
     url: str | None = None
     file_name: str | None = Field(alias="fileName", default=None)
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "allow"}
 
 
 class ChallengeInfo(BaseModel):
@@ -87,7 +102,7 @@ class ChallengeInfo(BaseModel):
     is_solved: bool = Field(alias="isSolved", default=False)
     type: str = ""
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "allow"}
 
 
 class ContainerInfo(BaseModel):
@@ -96,7 +111,7 @@ class ContainerInfo(BaseModel):
     start_time: datetime | None = Field(alias="startTime", default=None)
     expect_stop_at: datetime | None = Field(alias="expectStopAt", default=None)
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "allow"}
 
 
 class ChallengeDetail(BaseModel):
@@ -114,7 +129,7 @@ class ChallengeDetail(BaseModel):
     is_solved: bool = Field(alias="isSolved", default=False)
     submission_count: int = Field(alias="submissionCount", default=0)
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "allow"}
 
     @property
     def is_container_based(self) -> bool:
